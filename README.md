@@ -2,13 +2,13 @@
 
 
 Create virtualenv
-'''shell
+```shell
 $ virtualenv urp -p python3.8
 $ source urp/bin/activate
-'''
+```
   
 
 Install requirements
-'''shell
+```shell
 $ pip install -r requirements.txt
-'''
+```
