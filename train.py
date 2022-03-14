@@ -4,7 +4,7 @@ import config
 import argparse
 
 # Config
-cfg = config.load_config('configs/default.yaml')
+cfg = config.load_config('default.yaml')
 
 # Dataset
 train_dataset = config.get_dataset('train', cfg)
