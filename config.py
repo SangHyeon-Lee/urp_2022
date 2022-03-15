@@ -3,6 +3,7 @@ import models, training
 import torch
 import torch.distributions as dist
 from torch import nn
+import os
 
 # General config
 def load_config(path):
@@ -62,15 +63,15 @@ def get_prior_z(cfg, device, **kwargs):
 def get_model(cfg, device=None, dataset=None):
 
     # Shortcuts
-    dim = cfg['data']['dim']
-    z_dim = cfg['model']['z_dim']
-    c_dim = cfg['model']['c_dim']
-    input_type = cfg['data']['input_type']
-    ode_solver = cfg['model']['ode_solver']
-    ode_step_size = cfg['model']['ode_step_size']
-    use_adjoint = cfg['model']['use_adjoint']
-    rtol = cfg['model']['rtol']
-    atol = cfg['model']['atol']
+    dim = cfg['data']['dim'] # 3
+    z_dim = cfg['model']['z_dim'] # 128
+    c_dim = cfg['model']['c_dim'] # 0
+    input_type = cfg['data']['input_type'] # pcl_seq
+    ode_solver = cfg['model']['ode_solver'] # dopri5
+    ode_step_size = cfg['model']['ode_step_size'] # ?
+    use_adjoint = cfg['model']['use_adjoint'] # true
+    rtol = cfg['model']['rtol'] # 0.001
+    atol = cfg['model']['atol'] # 0.00001
 
     decoder = get_decoder(cfg, device, dim, c_dim, z_dim)
     velocity_field = get_velocity_field(cfg, device, dim, c_dim, z_dim)
