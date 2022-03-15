@@ -5,6 +5,8 @@ import argparse
 
 # Config
 cfg = config.load_config('configs/default.yaml')
+is_cuda = (torch.cuda.is_available())
+device = torch.device("cuda" if is_cuda else "cpu")
 
 # Dataset
 train_dataset = config.get_dataset('train', cfg)
@@ -15,7 +17,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset)
 val_loader = torch.utils.data.DataLoader(val_dataset)
 
 # Model
-model = config.get_model()
+model = config.get_model(cfg, device=device, dataset=train_dataset)
 
 # Optimizer
 optimizer = optim.Adam(model.parameters())
