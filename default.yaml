@@ -1,0 +1,24 @@
+data:
+  path: data/Faces
+  dataset: Faces
+  dim: 6
+  input_type: pcl_seq
+model:
+  z_dim: 0
+  c_dim: 512
+  ode_solver: dopri5
+  ode_step_size: null
+  use_adjoint: true
+  rtol: 0.001
+  atol: 0.00001
+  loss_corr: false
+  loss_recon: true
+  loss_corr_bw: false
+  vae_beta: 0.0001
+
+test:
+  threshold: 0.3
+
+training:
+  out_dir: out/00
+  eval_sample: true

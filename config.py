@@ -3,12 +3,13 @@ import models, training
 import torch
 import torch.distributions as dist
 from torch import nn
+import os
 
 # General config
 def load_config(path):
 
     with open(path, 'r') as f:
-        cfg = yaml.load(f)
+        cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     return cfg
 
@@ -126,6 +127,7 @@ def get_generator(model, cfg, device):
 def get_dataset(mode, cfg, return_idx=False, return_category=False):
 
     #TODO
+    dataset = []
 
     return dataset
 

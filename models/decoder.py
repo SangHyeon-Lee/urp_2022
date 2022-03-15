@@ -1,2 +1,5 @@
+import torch.nn as nn
+
+
 class Decoder(nn.Module):
     pass
