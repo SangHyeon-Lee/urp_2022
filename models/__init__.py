@@ -3,6 +3,11 @@ import torch.nn as nn
 from torch import distributions as dist
 from utils.torchdiffeq import odeint, odeint_adjoint
 
+import models.encoder_latent
+import models.decoder
+import models.pointnet
+import models.velocity_field
+
 class OccupancyFlow(nn.Module):
     ''' Occupancy Flow model class.
 

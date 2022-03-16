@@ -152,7 +152,8 @@ class ObjFile:
         norm_at = np.linalg.norm(a)
         norm_bt = np.linalg.norm(b)
 
-        bt_orth = bt - at * np.dot(at, bt)/norm_at/norm_bt
+        #bt_orth = bt - at * np.dot(at, bt)/norm_at/norm_bt # SYYI commented out
+        bt_orth = bt - at * np.dot(a, b)/norm_a/norm_b # SYYI appended
         norm_bt_orth = np.linalg.norm(bt_orth)
                 
 
@@ -202,32 +203,10 @@ class ObjFile:
 
                 if theta1 < theta_max1 and theta2 < theta_max2:
                     points.append(point)
-                    colors.append(self.texture[int(point_t[1])][int(point_t[0])])
+                    colors.append(self.texture[img_h-1-int(point_t[1])][int(point_t[0])]) # SYYI modified
                 #else:
                 #    points.append(point)
-                
-
-
-                
-
-
-
-
         
         #print(points)
 
-
-
         return np.array(points), np.array(colors)
-
-
-    
-
-
-
-
-
-
-
-
-    

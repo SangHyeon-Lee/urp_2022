@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from layers.layers import ResnetBlockFC
+from models.layers.layers import ResnetBlockFC
 
 def maxpool(x, dim=-1, keepdim=False):
     ''' Performs a maxpooling operation.

@@ -4,7 +4,7 @@ import config
 import argparse
 
 # Config
-cfg = config.load_config('configs/default.yaml')
+cfg = config.load_config('default.yaml')
 is_cuda = (torch.cuda.is_available())
 device = torch.device("cuda" if is_cuda else "cpu")
 
@@ -23,7 +23,7 @@ model = config.get_model(cfg, device=device, dataset=train_dataset)
 optimizer = optim.Adam(model.parameters())
 
 # Trainer
-trainer = config.get_trainer(model, optimizer)
+trainer = config.get_trainer(model, optimizer, cfg, device)
 
 # Training loop
 while True:

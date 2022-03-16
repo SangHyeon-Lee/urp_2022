@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.layers import ResnetBlockFC
+from models.layers.layers import ResnetBlockFC
 
 
 class VelocityField(nn.Module):
