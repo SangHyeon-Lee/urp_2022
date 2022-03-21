@@ -6,7 +6,7 @@ temp_path = "data/bareteeth.000001.obj"
 
 class ObjFile:
     def read_obj(self):
-        print("obj file parsing start...")
+       # print("obj file parsing start...")
 
         file = open(self.path, 'r')
         lines = file.readlines()
@@ -67,7 +67,7 @@ class ObjFile:
         vt = np.array(vt, dtype='float64')
         f = np.array(f)
 
-        print("complete!")
+        #print("complete!")
 
         return v, vn, vt, f
 
