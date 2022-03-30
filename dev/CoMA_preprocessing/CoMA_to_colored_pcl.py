@@ -4,6 +4,7 @@ import util
 import numpy as np
 import csv
 import open3d as o3d
+import laspy as lp
 from tqdm import tqdm
 
 
@@ -15,11 +16,11 @@ save_dir = "/media/vclab/extSSD/pcl_coma/"
 # dataset out range
 x_min, x_max = -200, 200
 y_min, y_max = -200, 200
-z_min, z_max = -150, 160
+z_min, z_max = -200, 200
 
-linspace_x = np.linspace(x_min, x_max, 50)
-linspace_y = np.linspace(y_min, y_max, 50)
-linspace_z = np.linspace(z_min, z_max, 50)
+linspace_x = np.linspace(x_min, x_max, 51)
+linspace_y = np.linspace(y_min, y_max, 51)
+linspace_z = np.linspace(z_min, z_max, 51)
 
 
 
@@ -51,7 +52,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
 
         points = np.zeros((0, 3))
         colors = np.zeros((0, 3))
-        for i in tqdm(range(1, len(obj.f), 10)):
+        for i in tqdm(range(1, len(obj.f), 200)):
             x, c = obj.get_points_on_face(i)
 
 
@@ -79,51 +80,17 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
         #o3d.visualization.draw_geometries([pcd])
 
 
+        # voxelization
+        v_size = round (max(pcd.get_max_bound() - pcd.get_min_bound())* 0.005, 4)
+        voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(pcd, voxel_size=v_size)
+
+        #o3d.visualization.draw_geometries([voxel_grid])
+        voxel = voxel_grid.get_voxels()
+        voxel_pos = np.array([vox.grid_index for vox in voxel])
+        voxel_color = np.array([vox.color for vox in voxel])
 
 
-        occupancy_array = []
-        point_array = []
-        color_array = []
-        
-        # iterate voxel
-        for i in tqdm(range(len(linspace_x) - 1)):
-            for j in range(len(linspace_y) - 1):
-                for k in range(len(linspace_z) - 1):
-                    x_left, x_right = linspace_x[i], linspace_x[i + 1]
-                    y_left, y_right = linspace_y[i], linspace_y[i + 1]
-                    z_left, z_right = linspace_z[i], linspace_z[i + 1]
-
-                    x_mid = (x_left + x_right)/2
-                    y_mid = (y_left + y_right)/2
-                    z_mid = (z_left + z_right)/2
-
-                    
-                    target_point_idx_list = []
-                    for l in range(len(points)):
-                        cond_x =  points[l, 0] > x_left and points[l, 0] < x_right
-                        cond_y =  points[l, 1] > y_left and points[l, 1] < y_right
-                        cond_z =  points[l, 2] > z_left and points[l, 2] < z_right
-
-                        if cond_x and cond_y and cond_z:
-                            # find point in boxel
-                            target_point_idx_list.append(l)
-                    
-
-                    if len(target_point_idx_list) == 0:
-                        # there's no point in this voxel
-                        occupancy_array.append(0)
-                        color_array.append(None)
-                        point_array.append(np.array([x_mid, y_mid, z_mid]))
-                    else:
-                        print(len(target_point_idx_list))
-                        pass
-        
-
-
-
-
-
-
+        print(voxel_pos[:10])
         break
 
 
