@@ -75,6 +75,7 @@ def get_model(cfg, device=None, dataset=None):
 
     decoder = get_decoder(cfg, device, dim, c_dim, z_dim)
     velocity_field = get_velocity_field(cfg, device, dim, c_dim, z_dim)
+    # ~~~~~~~~~~~~~~~#
     encoder = get_encoder(cfg, device, dataset, c_dim)
     encoder_latent = get_encoder_latent(cfg, device, c_dim, z_dim)
     encoder_latent_temporal = get_encoder_latent_temporal(
