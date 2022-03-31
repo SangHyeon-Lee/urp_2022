@@ -1,5 +1,6 @@
 import yaml
 import models, training
+from models import velocity_color_field
 import torch
 import torch.distributions as dist
 from torch import nn
@@ -42,6 +43,23 @@ def get_encoder_temporal(cfg, device, dataset=None, c_dim=0, z_dim=0):
     
     encoder_temporal = models.pointnet.ResnetPointnet()
     return encoder_temporal
+
+#############################################
+#### For new field (VelocityColorField) #####
+#############################################
+
+def get_encoder_color(cfg, device, dataset=None, c_dim=0):
+    pass
+
+def get_decoder_color(cfg, device, dim, c_dim, z_dim):
+    pass
+
+def get_velocity_color_field(cfg, device, dim, c_dim, z_dim):
+    
+    velocity_color_field = models.velocity_color_field.VelocityColorField()
+    return velocity_color_field
+
+#############################################
 
 def get_prior_z(cfg, device, **kwargs):
     ''' Returns the prior distribution of latent code z.
