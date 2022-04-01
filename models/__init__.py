@@ -37,13 +37,15 @@ class OccupancyFlow(nn.Module):
     def __init__(
         self, decoder, encoder=None, encoder_latent=None,
             encoder_latent_temporal=None,
-            encoder_temporal=None, vector_field=None,
+            encoder_temporal=None, vector_field=None, vector_color_field=None,
             ode_step_size=None, use_adjoint=False,
-            rtol=0.001, atol=0.00001, ode_solver='dopri5', p0_z=None,
+            rtol=0.001, atol=0.00001, ode_solver='dopri5', p0_z=None, p0_z_color=None,
             device=None, input_type=None, **kwargs):
         super().__init__()
         if p0_z is None:
             p0_z = dist.Normal(torch.tensor([]), torch.tensor([]))
+        if p0_z_color is None:
+            p0_z_color = dist.Normal(torch.tensor([]), torch.tensor([]))
 
         self.device = device
         self.input_type = input_type
@@ -52,8 +54,20 @@ class OccupancyFlow(nn.Module):
         self.encoder_latent = encoder_latent
         self.encoder_latent_temporal = encoder_latent_temporal
         self.encoder = encoder
-        self.vector_field = vector_field
         self.encoder_temporal = encoder_temporal
+        self.vector_field = vector_field
+        
+
+        #FIX
+        self.decoder_color = None
+        self.encoder_latent_color = None
+        self.encoder_latent_temporal_color = None
+        self.encoder_color = None
+        self.encoder_temporal_color = None
+
+        self.vector_color_field = vector_color_field
+
+        
 
         self.p0_z = p0_z
         self.rtol = rtol
@@ -73,15 +87,15 @@ class OccupancyFlow(nn.Module):
         ''' Makes a forward pass through the network.
 
         Args:
-            p (tensor): points tensor
+            p (tensor): points+color tensor
             time_val (tensor): time values
             inputs (tensor): input tensor
             sample (bool): whether to sample
         '''
         batch_size = p.size(0)
         
-        c_s, c_t = self.encode_inputs(inputs)
-        z, z_t = self.get_z_from_prior((batch_size,), sample=sample)
+        c_s, c_s_color, c_t, c_t_color = self.encode_inputs(inputs)
+        z, z_color, z_t, z_t_color = self.get_z_from_prior((batch_size,), sample=sample)
 
         p_t_at_t0 = self.model.transform_to_t0(time_val, p, c_t=c_t, z=z_t)
         out = self.model.decode(p_t_at_t0, c=c_s, z=z)
@@ -126,7 +140,7 @@ class OccupancyFlow(nn.Module):
 
         return q_z, q_z_t
 
-    def get_z_from_prior(self, size=torch.Size([]), sample=True):
+    def get_z_from_prior(self, size=torch.Size([]), size_color=torch.Size([]), sample=True):
         ''' Returns z from the prior distribution.
 
         If sample is true, z is sampled, otherwise the mean is returned.
@@ -143,7 +157,15 @@ class OccupancyFlow(nn.Module):
             z = z.expand(*size, *z.size())
             z_t = z
 
-        return z, z_t
+        if sample:
+            z_t_color = self.p0_z_color.sample(size_color).to(self.device)
+            z_color = self.p0_z_color.sample(size_color).to(self.device)
+        else:
+            z_color = self.p0_z_color.mean.to(self.device)
+            z_color = z_color.expand(*size_color, *z_color.size())
+            z_t_color = z_color
+
+        return z, z_color, z_t, z_t_color
 
     def to(self, device):
         ''' Puts the model to the device.
@@ -192,11 +214,16 @@ class OccupancyFlow(nn.Module):
             c_t = self.encoder(inputs)
         '''
         if self.encoder_temporal is not None:
-            c_t = self.encoder_temporal(inputs)
+            c_t = self.encoder_temporal(inputs[0:2])
         else:
             c_t = torch.empty(batch_size, 0).to(device)
 
-        return c_t
+        if self.encoder_temporal_color is not None:
+            c_t_color = self.encoder_temporal_color(inputs)
+        else:
+            c_t_color = torch.empty(batch_size, 0).to(device)
+
+        return c_t, c_t_color
 
     def encode_spatial_inputs(self, inputs):
         ''' Returns the spatial encoding c_s
@@ -212,11 +239,16 @@ class OccupancyFlow(nn.Module):
             inputs = inputs[:, 0, :]
 
         if self.encoder is not None:
-            c = self.encoder(inputs)
+            c = self.encoder(inputs[0:2])
         else:
             c = torch.empty(batch_size, 0).to(device)
 
-        return c
+        if self.encoder_color is not None:
+            c_color = self.encoder_color(inputs)
+        else:
+            c_color = torch.empty(batch_size, 0).to(device)
+
+        return c, c_color
 
     def encode_inputs(self, inputs):
         ''' Returns spatial and temporal latent code for inputs.
@@ -224,10 +256,10 @@ class OccupancyFlow(nn.Module):
         Args:
             inputs (tensor): inputs tensor
         '''
-        c_s = self.encode_spatial_inputs(inputs)
-        c_t = self.encode_temporal_inputs(inputs)
+        c_s, c_s_color = self.encode_spatial_inputs(inputs)
+        c_t, c_t_color = self.encode_temporal_inputs(inputs)
 
-        return c_s, c_t
+        return c_s,c_s_color, c_t,c_t_color
 
     # ######################################################
     # #### Forward and Backward Flow functions #### #
@@ -267,7 +299,7 @@ class OccupancyFlow(nn.Module):
 
         return p_out
 
-    def transform_to_t0(self, t, p, z=None, c_t=None):
+    def transform_to_t0(self, t, p, z=None, z_color=None, c_t=None, c_t_color=None):
         ''' Transforms the points p at time t to time 0.
 
         Args:
@@ -337,6 +369,38 @@ class OccupancyFlow(nn.Module):
         return t_steps_eval, t_order[1:]
 
     def disentangle_vf_output(self, v_out, p_dim=3, c_dim=None,
+                              z_dim=None, return_start=False):
+        ''' Disentangles the output of the velocity field.
+
+        The inputs and outputs for / of the velocity network are concatenated
+        to be able to use the adjoint method.
+
+        Args:
+            v_out (tensor): output of the velocity field
+            p_dim (int): points dimension
+            c_dim (int): dimension of conditioned code c
+            z_dim (int): dimension of latent code z
+            return_start (bool): whether to return start points
+        '''
+
+        n_steps, batch_size, _ = v_out.shape
+
+        if z_dim is not None and z_dim != 0:
+            v_out = v_out[:, :, :-z_dim]
+
+        if c_dim is not None and c_dim != 0:
+            v_out = v_out[:, :, :-c_dim]
+
+        v_out = v_out.contiguous().view(n_steps, batch_size, -1, p_dim)
+
+        if not return_start:
+            v_out = v_out[1:]
+
+        v_out = v_out.transpose(0, 1)
+
+        return v_out
+
+    def disentangle_vf_output_color(self, v_out, p_dim=6, c_dim=None,
                               z_dim=None, return_start=False):
         ''' Disentangles the output of the velocity field.
 
