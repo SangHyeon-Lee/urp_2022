@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.layers import (
+from models.layers.layers import (
     ResnetBlockFC, CResnetBlockConv1d,
     CBatchNorm1d, CBatchNorm1d_legacy
 )

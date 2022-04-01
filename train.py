@@ -25,8 +25,23 @@ optimizer = optim.Adam(model.parameters())
 # Trainer
 trainer = config.get_trainer(model, optimizer, cfg, device)
 
+# Training Info
+epoch_it = -1
+it = -1
+
+print_every = cfg['training']['print_every']
+
+
 # Training loop
 while True:
+    epoch_it += 1
+
     for batch in train_loader:
+        it += 1
         loss = trainer.train_step(batch)
+
+        if print_every > 0 and (it % print_every) == 0:
+            print('[Epoch %02d] it=%03d, loss=%.4f'
+                  % (epoch_it, it, loss))
+
 

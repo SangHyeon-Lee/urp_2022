@@ -22,3 +22,5 @@ test:
 training:
   out_dir: out/00
   eval_sample: true
+  print_every: 5
+  

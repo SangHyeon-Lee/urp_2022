@@ -15,6 +15,91 @@ def maxpool(x, dim=-1, keepdim=False):
     out, _ = x.max(dim=dim, keepdim=keepdim)
     return out
 
+
+class Encoder(nn.Module):
+    ''' Latent encoder class.
+
+    It encodes input points together with their occupancy values and an
+    (optional) conditioned latent code c to mean and standard deviations of
+    the posterior distribution.
+
+    Args:
+        dim (int): dimension of input points
+        z_dim (int): dimension of latent code z
+        c_dim (int): dimension of latent conditioned code c
+        hidden_size (int): dimension of hidden size
+        leaky (bool): whether to use leaky ReLUs as activation 
+
+    '''
+
+    def __init__(self, z_dim=128, c_dim=128, dim=3, hidden_dim=128,
+                 leaky=False, **kwargs):
+        super().__init__()
+        self.z_dim = z_dim
+        self.c_dim = c_dim
+
+        # Submodules
+        self.fc_pos = nn.Linear(dim, hidden_dim)
+
+        if c_dim != 0:
+            self.fc_c = nn.Linear(c_dim, hidden_dim)
+
+        self.fc_0 = nn.Linear(1, hidden_dim)
+        self.fc_1 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc_2 = nn.Linear(hidden_dim*2, hidden_dim)
+        self.fc_3 = nn.Linear(hidden_dim*2, hidden_dim)
+        self.fc_mean = nn.Linear(hidden_dim, z_dim)
+        self.fc_logstd = nn.Linear(hidden_dim, z_dim)
+
+        if not leaky:
+            self.actvn = F.relu
+            self.pool = maxpool
+        else:
+            self.actvn = lambda x: F.leaky_relu(x, 0.2)
+            self.pool = torch.mean
+
+    def forward(self, inputs, c=None, data=None, **kwargs):
+        ''' Performs a forward pass through the network.
+
+        Args:
+            p (tensor): input points
+            o (tensor): occupancy values
+            c (tensor): latent code c
+        '''
+        device = inputs.device
+        p = data['points'].to(device)
+        o = data['points.occ'].to(device)
+
+        if len(p.shape) > 3:  # Evaluation case
+            p = p[:, 0]
+            o = o[:, 0]
+
+        batch_size, T, D = p.size()
+        # output size: B x T X F
+        net = self.fc_0(o.unsqueeze(-1))
+        net = net + self.fc_pos(p)
+
+        if self.c_dim != 0:
+            net = net + self.fc_c(c).unsqueeze(1)
+
+        net = self.fc_1(self.actvn(net))
+        pooled = self.pool(net, dim=1, keepdim=True).expand(net.size())
+        net = torch.cat([net, pooled], dim=2)
+
+        net = self.fc_2(self.actvn(net))
+        pooled = self.pool(net, dim=1, keepdim=True).expand(net.size())
+        net = torch.cat([net, pooled], dim=2)
+
+        net = self.fc_3(self.actvn(net))
+        # Reduce to  B x F
+        net = self.pool(net, dim=1)
+
+        mean = self.fc_mean(net)
+        logstd = self.fc_logstd(net)
+
+        return mean, logstd
+
+
 class PointNet(nn.Module):
     ''' Latent PointNet-based encoder class.
 
