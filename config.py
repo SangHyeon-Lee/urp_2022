@@ -85,6 +85,9 @@ def get_model(cfg, device=None, dataset=None):
 
     # Shortcuts
     dim = cfg['data']['dim'] # 3
+
+    dim_color = cfg['data']['dim_color']
+
     z_dim = cfg['model']['z_dim'] # 128
     c_dim = cfg['model']['c_dim'] # 0
     input_type = cfg['data']['input_type'] # pcl_seq
@@ -96,7 +99,7 @@ def get_model(cfg, device=None, dataset=None):
 
     decoder = get_decoder(cfg, device, dim, c_dim, z_dim)
     velocity_field = get_velocity_field(cfg, device, dim, c_dim, z_dim)
-    # ~~~~~~~~~~~~~~~#
+    velocity_color_field = get_velocity_color_field(cfg, device, dim_color, c_dim, z_dim)
     encoder = get_encoder(cfg, device, dataset, c_dim)
     encoder_latent = get_encoder_latent(cfg, device, c_dim, z_dim)
     encoder_latent_temporal = get_encoder_latent_temporal(
@@ -107,7 +110,7 @@ def get_model(cfg, device=None, dataset=None):
 
     model = models.OccupancyFlow(decoder=decoder, encoder=encoder, encoder_latent=encoder_latent,
         encoder_latent_temporal=encoder_latent_temporal,
-        encoder_temporal=encoder_temporal, vector_field=velocity_field,
+        encoder_temporal=encoder_temporal, vector_field=velocity_field, vector_color_field=velocity_color_field,
         ode_step_size=ode_step_size, use_adjoint=use_adjoint,
         rtol=rtol, atol=atol, ode_solver=ode_solver,
         p0_z=p0_z, device=device, input_type=input_type)
