@@ -1,6 +1,28 @@
 data:
   path: data/Faces
   dataset: Faces
+  classes: ['CoMA']
+  train_split: train
+  val_split: val
+  test_split: test
+
+  length_sequence: 17
+  n_files_per_sequence: -1
+  offset_sequence: 15
+
+  pointcloud_seq_folder: pcl_seq
+  points_iou_seq_folder: points_seq
+  mesh_seq_folder: mesh_seq
+
+  points_unpackbits: true
+  n_training_pcl_points: 100
+  n_training_points: 512
+
+  input_pointcloud_corresponding: true
+  input_pointcloud_n: 300
+  input_pointcloud_noise: 0.001
+
+
   dim: 6
   input_type: pcl_seq
 model:
@@ -23,4 +45,11 @@ training:
   out_dir: out/00
   eval_sample: true
   print_every: 5
-  
+
+  n_eval_points: 5000
+
+generation:
+  interpolate: false
+  correspondence: false
+
+method: oflow
