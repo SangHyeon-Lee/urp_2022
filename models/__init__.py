@@ -93,11 +93,12 @@ class OccupancyFlow(nn.Module):
             sample (bool): whether to sample
         '''
         batch_size = p.size(0)
-        
+        #TODO
         c_s, c_s_color, c_t, c_t_color = self.encode_inputs(inputs)
         z, z_color, z_t, z_t_color = self.get_z_from_prior((batch_size,), sample=sample)
 
-        p_t_at_t0 = self.model.transform_to_t0(time_val, p, c_t=c_t, z=z_t)
+        p_t_at_t0, _ = self.model.transform_to_t0(time_val, p, c_t=c_t, c_t_color = c_t_color,
+                                             z=z_t, z_color=z_t_color)
         out = self.model.decode(p_t_at_t0, c=c_s, z=z)
         return out
 
@@ -114,7 +115,7 @@ class OccupancyFlow(nn.Module):
         p_r = dist.Bernoulli(logits=logits)
         return p_r
 
-    def infer_z(self, inputs, c=None, data=None):
+    def infer_z(self, inputs, c=None, c_color=None, data=None):
         ''' Infers a latent code z.
 
         The inputs and latent conditioned code are passed to the latent encoder
@@ -125,7 +126,7 @@ class OccupancyFlow(nn.Module):
             c (tensor): latent conditioned code c
         '''
         if self.encoder_latent is not None:
-            mean_z, logstd_z = self.encoder_latent(inputs, c, data=data)
+            mean_z, logstd_z = self.encoder_latent(inputs[:,:,0:3], c, data=data)
         else:
             batch_size = inputs.size(0)
             mean_z = torch.empty(batch_size, 0).to(self.device)
@@ -138,7 +139,22 @@ class OccupancyFlow(nn.Module):
 
         q_z_t = dist.Normal(mean_z, torch.exp(logstd_z))
 
-        return q_z, q_z_t
+
+        if self.encoder_latent_color is not None:
+            mean_z_color, logstd_z_color = self.encoder_latent_color(inputs, c_color, data=data)
+        else:
+            batch_size = inputs.size(0)
+            mean_z_color = torch.empty(batch_size, 0).to(self.device)
+            logstd_z_color = torch.empty(batch_size, 0).to(self.device)
+
+        q_z_color = dist.Normal(mean_z_color, torch.exp(logstd_z_color))
+
+        if self.encoder_latent_temporal_color is not None:
+            mean_z_color, logstd_z_color = self.encoder_latent_temporal_color(inputs, c_color)
+
+        q_z_t_color = dist.Normal(mean_z_color, torch.exp(logstd_z_color))
+
+        return q_z, q_z_color, q_z_t, q_z_t_color
 
     def get_z_from_prior(self, size=torch.Size([]), size_color=torch.Size([]), sample=True):
         ''' Returns z from the prior distribution.
@@ -214,7 +230,7 @@ class OccupancyFlow(nn.Module):
             c_t = self.encoder(inputs)
         '''
         if self.encoder_temporal is not None:
-            c_t = self.encoder_temporal(inputs[0:2])
+            c_t = self.encoder_temporal(inputs[:,:,0:3])
         else:
             c_t = torch.empty(batch_size, 0).to(device)
 
@@ -239,7 +255,7 @@ class OccupancyFlow(nn.Module):
             inputs = inputs[:, 0, :]
 
         if self.encoder is not None:
-            c = self.encoder(inputs[0:2])
+            c = self.encoder(inputs[:,:,0:3])
         else:
             c = torch.empty(batch_size, 0).to(device)
 
@@ -264,7 +280,7 @@ class OccupancyFlow(nn.Module):
     # ######################################################
     # #### Forward and Backward Flow functions #### #
 
-    def transform_to_t_backward(self, t, p, z=None, c_t=None):
+    def transform_to_t_backward(self, t, p, z=None, z_color=None, c_t=None, c_t_color=None):
         ''' Transforms points p from time 1 (multiple) t backwards.
 
         For example, for t = [0.5, 1], it transforms the points from the
@@ -279,13 +295,13 @@ class OccupancyFlow(nn.Module):
         device = self.device
         batch_size = p.shape[0]
 
-        p_out, _ = self.eval_ODE(t, p, c_t=c_t, z=z,
+        p_out, p_color_out, _ = self.eval_ODE(t, p, c_t=c_t, c_t_color=c_t_color, z=z, z_color=z_color,
                                  t_batch=torch.ones(batch_size).to(device),
                                  invert=True, return_start=(0 in t))
 
-        return p_out
+        return p_out, p_color_out
 
-    def transform_to_t(self, t, p, z=None, c_t=None):
+    def transform_to_t(self, t, p, z=None, z_color=None, c_t=None, c_t_color=None):
         '''  Transforms points p from time 0 to (multiple) time values t.
 
         Args:
@@ -295,9 +311,9 @@ class OccupancyFlow(nn.Module):
             c_t (tensor): latent conditioned temporal code c_t
 
         '''
-        p_out, _ = self.eval_ODE(t, p, c_t=c_t, z=z, return_start=(0 in t))
+        p_out, p_color_out, _ = self.eval_ODE(t, p, c_t=c_t, c_t_color=c_t_color, z=z, z_color=z_color, return_start=(0 in t))
 
-        return p_out
+        return p_out, p_color_out
 
     def transform_to_t0(self, t, p, z=None, z_color=None, c_t=None, c_t_color=None):
         ''' Transforms the points p at time t to time 0.
@@ -309,18 +325,20 @@ class OccupancyFlow(nn.Module):
             c_t (tensor): latent conditioned temporal code c_t
         '''
 
-        p_out, t_order = self.eval_ODE(t, p, c_t=c_t, z=z, t_batch=t,
+        p_out, p_color_out, t_order = self.eval_ODE(t, p, c_t=c_t, c_t_color=c_t_color, z=z, z_color=z_color, t_batch=t,
                                        invert=True, return_start=True)
 
         # Select respective time value for each item from batch
         batch_size = len(t_order)
         p_out = p_out[torch.arange(batch_size), t_order]
-        return p_out
+        p_color_out = p_color_out[torch.arange(batch_size), t_order]
+
+        return p_out, p_color_out
 
     # ######################################################
     # #### ODE related functions and helper functions #### #
 
-    def eval_ODE(self, t, p, c_t=None, z=None, t_batch=None, invert=False,
+    def eval_ODE(self, t, p, c_t=None, c_t_color=None, z=None, z_color=None, t_batch=None, invert=False,
                  return_start=False):
         ''' Evaluates the ODE for points p and time values t.
 
@@ -338,12 +356,16 @@ class OccupancyFlow(nn.Module):
         c_dim = c_t.shape[-1]
         z_dim = z.shape[-1]
 
+        c_color_dim = c_t_color.shape[-1]
+        z_color_dim = z_color.shape[-1]
+
         t_steps_eval, t_order = self.return_time_steps(t)
         if len(t_steps_eval) == 1:
             return p.unsqueeze(1), t_order
 
         f_options = {'T_batch': t_batch, 'invert': invert}
-        p = self.concat_vf_input(p, c=c_t, z=z)
+
+        p = self.concat_vf_input(p[:,:,0:3], c=c_t, z=z)
         s = self.odeint(
             self.vector_field, p, t_steps_eval,
             method=self.ode_solver, rtol=self.rtol, atol=self.atol,
@@ -352,7 +374,16 @@ class OccupancyFlow(nn.Module):
         p_out = self.disentangle_vf_output(
             s, c_dim=c_dim, z_dim=z_dim, return_start=return_start)
 
-        return p_out, t_order
+        p_color = self.concat_vf_input(p, c=c_t_color, z=z_color)
+        s_color = self.odeint(
+            self.vector_color_field, p_color, t_steps_eval,
+            method=self.ode_solver, rtol=self.rtol, atol=self.atol,
+            options=self.ode_options, f_options=f_options)
+
+        p_color_out = self.disentangle_vf_output_color(
+            s_color, c_dim=c_color_dim, z_dim=z_color_dim, return_start=return_start)
+
+        return p_out, p_color_out, t_order
 
     def return_time_steps(self, t):
         ''' Returns time steps for the ODE Solver.

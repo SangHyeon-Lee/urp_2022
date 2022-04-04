@@ -6,6 +6,7 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 
+
 def compute_iou(occ1, occ2):
     ''' Computes the Intersection over Union (IoU) value for two sets of
     occupancy values.
@@ -123,30 +124,39 @@ class Trainer(object):
 
         with torch.no_grad():
             # Encode inputs
-            c_s, c_t = self.model.encode_inputs(inputs)
-            q_z, q_z_t = self.model.infer_z(inputs, c=c_t, data=data)
+            c_s, c_s_color, c_t, c_t_color = self.model.encode_inputs(inputs)
+            q_z, q_z_color, q_z_t, q_z_t_color = self.model.infer_z(
+                inputs, c=c_t, c_color=c_t_color, data=data)
             z, z_t = q_z.rsample(), q_z_t.rsample()
+            z_color, z_t_color = q_z_color.rsample(), q_z_t_color.rsample()
 
             # KL Divergence
             loss_kl_1 = self.compute_kl(q_z).item()
             loss_kl_2 = self.compute_kl(q_z_t).item()
-            loss_kl = loss_kl_1 + loss_kl_2
+            loss_kl_color_1 = self.compute_kl(q_z_color).item()
+            loss_kl_color_2 = self.compute_kl(q_z_t_color).item()
+            loss_kl = loss_kl_1 + loss_kl_2 + loss_kl_color_1 + loss_kl_color_2
 
             eval_dict['kl'] = loss_kl
             eval_dict['kl_1'] = loss_kl_1
             eval_dict['kl_2'] = loss_kl_2
+            eval_dict['kl_color_1'] = loss_kl_color_1
+            eval_dict['kl_color_2'] = loss_kl_color_2
             loss += loss_kl
 
             # IoU
             if self.eval_iou:
                 eval_dict_iou = self.eval_step_iou(data, c_s=c_s, c_t=c_t, z=z,
-                                                   z_t=z_t)
+                                                   z_t=z_t, c_s_color=c_s_color,
+                                                   c_t_color=c_t_color, z_color=z_color,
+                                                   z_t_color=z_t_color)
                 for (k, v) in eval_dict_iou.items():
                     eval_dict[k] = v
                 loss += eval_dict['rec_error']
             else:
                 # Correspondence Loss
-                eval_dict_mesh = self.eval_step_corr_l2(data, c_t=c_t, z_t=z_t)
+                eval_dict_mesh = self.eval_step_corr_l2(
+                    data, c_t=c_t, c_t_color=c_t_color, z_t=z_t, z_t_color=z_t_color)
                 for (k, v) in eval_dict_mesh.items():
                     eval_dict[k] = v
                 loss += eval_dict['l2']
@@ -154,7 +164,8 @@ class Trainer(object):
         eval_dict['loss'] = loss
         return eval_dict
 
-    def eval_step_iou(self, data, c_s=None, c_t=None, z=None, z_t=None):
+    def eval_step_iou(self, data, c_s=None, c_t=None, z=None, z_t=None,
+                      c_s_color=None, c_t_color=None, z_color=None, z_t_color=None):
         ''' Calculates the IoU score for an evaluation test set item.
 
         Args:
@@ -175,19 +186,29 @@ class Trainer(object):
         batch_size, n_steps, n_pts, dim = pts_iou.shape
 
         # Transform points from later time steps back to t=0
-        pts_iou_t0 = torch.stack(
+        pts_iou_t0_raw = torch.stack(
             [self.model.transform_to_t0(
-                pts_iou_t[:, i], pts_iou[:, i], z_t, c_t)
+                pts_iou_t[:, i], pts_iou[:, i], z_t, z_t_color, c_t, c_t_color)
                 for i in range(n_steps)], dim=1)
 
         # Reshape latent codes and predicted points tensor
         c_s = c_s.unsqueeze(1).repeat(1, n_steps, 1).view(
             batch_size * n_steps, -1)
         z = z.unsqueeze(1).repeat(1, n_steps, 1).view(batch_size * n_steps, -1)
-        pts_iou_t0 = pts_iou_t0.view(batch_size * n_steps, n_pts, dim)
 
+        c_s_color = c_s_color.unsqueeze(1).repeat(1, n_steps, 1).view(
+            batch_size * n_steps, -1)
+        z_color = z_color.unsqueeze(1).repeat(
+            1, n_steps, 1).view(batch_size * n_steps, -1)
+
+        pts_iou_t0 = pts_iou_t0_raw[0].view(batch_size * n_steps, n_pts, 3)
+        pts_color_iou_t0 = pts_iou_t0_raw[1].view(batch_size * n_steps, n_pts, 6)
         # Calculate predicted occupancy values
         p_r = self.model.decode(pts_iou_t0, z, c_s)
+
+        # TODO
+        p_r_color = self.model.decode_color(
+            pts_color_iou_t0, z_color, c_s_color)
 
         rec_error = -p_r.log_prob(occ_iou.to(device).view(-1, n_pts)).mean(-1)
         rec_error = rec_error.view(batch_size, n_steps).mean(0)
@@ -209,7 +230,7 @@ class Trainer(object):
 
         return eval_dict
 
-    def eval_step_corr_l2(self, data, c_t=None, z_t=None):
+    def eval_step_corr_l2(self, data, c_t=None, c_t_color=None, z_t=None, z_t_color=None):
         ''' Calculates the correspondence l2 distance for an evaluation test set item.
 
         Args:
@@ -226,14 +247,16 @@ class Trainer(object):
         n_steps = p_mesh_t.shape[0]
 
         # Transform points on mesh from t=0 to later time steps
-        pts_pred = self.model.transform_to_t(p_mesh_t, p_mesh[:, 0], z_t,
-                                             c_t)
+        # TODO
+        pts_pred, _ = self.model.transform_to_t(p_mesh_t, p_mesh[:, 0], z_t, z_t_color,
+                                                c_t, c_t_color)
 
         if self.loss_corr_bw:
             # Backwards prediction
-            pred_b = self.model.transform_to_t_backward(p_mesh_t,
-                                                        p_mesh[:, -1], z_t,
-                                                        c_t).flip(1)
+            pred_b, _ = self.model.transform_to_t_backward(p_mesh_t,
+                                                           p_mesh[:, -
+                                                                  1], z_t, z_t_color,
+                                                           c_t, c_t_color).flip(1)
 
             # Linear Interpolate between both directions
             w = (torch.arange(n_steps).float() / (n_steps - 1)).view(
@@ -258,7 +281,8 @@ class Trainer(object):
         '''
         print("Currently not implemented.")
 
-    def get_loss_recon(self, data, c_s=None, c_t=None, z=None, z_t=None):
+    def get_loss_recon(self, data, c_s=None, c_s_color=None,
+                       c_t=None, c_t_color=None, z=None, z_color=None, z_t=None, z_t_color=None):
         ''' Computes the reconstruction loss.
 
         Args:
@@ -271,12 +295,12 @@ class Trainer(object):
         if not self.loss_recon:
             return 0
 
-        loss_t0 = self.get_loss_recon_t0(data, c_s, z)
-        loss_t = self.get_loss_recon_t(data, c_s, c_t, z, z_t)
+        loss_t0 = self.get_loss_recon_t0(data, c_s, c_s_color, z, z_color)
+        loss_t = self.get_loss_recon_t(data, c_s, c_s_color, c_t, c_t_color, z, z_color, z_t, z_t_color)
 
         return loss_t0 + loss_t
 
-    def get_loss_recon_t0(self, data, c_s=None, z=None):
+    def get_loss_recon_t0(self, data, c_s=None, c_s_color=None, z=None, z_color=None):
         ''' Computes the reconstruction loss for time step t=0.
 
         Args:
@@ -284,7 +308,9 @@ class Trainer(object):
             c_s (tensor): spatial conditioned code c_s
             z (tensor): latent code z
         '''
-        p_t0 = data.get('points')
+        p_t0 = data.get('points')[0:3]
+        #TODO
+        p_color_t0 = data.get('points')
         occ_t0 = data.get('points.occ')
 
         device = self.device
@@ -298,7 +324,8 @@ class Trainer(object):
 
         return loss_occ_t0
 
-    def get_loss_recon_t(self, data, c_s=None, c_t=None, z=None, z_t=None):
+    def get_loss_recon_t(self, data, c_s=None, c_s_color=None, c_t=None, 
+                        c_t_color=None, z=None, z_color=None, z_t=None, z_t_color=None):
         ''' Returns the reconstruction loss for time step t>0.
 
         Args:
@@ -308,6 +335,7 @@ class Trainer(object):
             z (tensor): latent code z
             z_t (tensor): latent temporal code z
         '''
+        #TODO
         device = self.device
 
         p_t = data.get('points_t').to(device)
@@ -315,9 +343,11 @@ class Trainer(object):
         time_val = data.get('points_t.time').to(device)
         batch_size, n_pts, p_dim = p_t.shape
 
-        p_t_at_t0 = self.model.transform_to_t0(
-            time_val, p_t, c_t=c_t, z=z_t)
+        p_t_at_t0, p_color_t_at_t0 = self.model.transform_to_t0(
+            time_val, p_t, c_t=c_t, c_t_color=c_t_color, z=z_t, z_color=z_t_color)
         logits_p_t = self.model.decode(p_t_at_t0, c=c_s, z=z).logits
+
+
 
         loss_occ_t = F.binary_cross_entropy_with_logits(
             logits_p_t, occ_t.view(batch_size, -1), reduction='none')
@@ -347,9 +377,9 @@ class Trainer(object):
 
         if self.loss_corr_bw:
             # Use forward and backward prediction
-            pred_f = self.model.transform_to_t(t, pc[:, 0], c_t=c_t, z=z_t)
+            pred_f, _ = self.model.transform_to_t(t, pc[:, 0], c_t=c_t, z=z_t)
 
-            pred_b = self.model.transform_to_t_backward(
+            pred_b, _ = self.model.transform_to_t_backward(
                 t, pc[:, -1], c_t=c_t, z=z_t)
             pred_b = pred_b.flip(1)
 
@@ -357,7 +387,7 @@ class Trainer(object):
             lc2 = torch.norm(pred_b - pc, 2, dim=-1).mean()
             loss_corr = lc1 + lc2
         else:
-            pt_pred = self.model.transform_to_t(
+            pt_pred, _ = self.model.transform_to_t(
                 t[1:], pc[:, 0], c_t=c_t, z=z_t)
             loss_corr = torch.norm(pt_pred - pc[:, 1:], 2, dim=-1).mean()
 
@@ -387,16 +417,23 @@ class Trainer(object):
         device = self.device
         # Encode inputs
         inputs = data.get('inputs', torch.empty(1, 1, 0)).to(device)
-        c_s, c_t = self.model.encode_inputs(inputs)
-        q_z, q_z_t = self.model.infer_z(inputs, c=c_t, data=data)
+        c_s, c_s_color, c_t, c_t_color = self.model.encode_inputs(inputs)
+        q_z, q_z_color, q_z_t, q_z_t_color = self.model.infer_z(
+            inputs, c=c_t, data=data)
         z, z_t = q_z.rsample(), q_z_t.rsample()
+        z_color, z_t_color = q_z_color.rsample(), q_z_t_color.rsample()
 
         # Losses
         # KL-divergence
         loss_kl = self.compute_kl(q_z) + self.compute_kl(q_z_t)
 
+        loss_kl_color = self.compute_kl(
+            q_z_color) + self.compute_kl(q_z_t_color)
+
         # Reconstruction Loss
-        loss_recon = self.get_loss_recon(data, c_s, c_t, z, z_t)
+        # TODO
+        loss_recon = self.get_loss_recon(
+            data, c_s, c_s_color, c_t, c_t_color, z, z_color, z_t, z_t_color)
 
         # Correspondence Loss
         loss_corr = self.compute_loss_corr(data, c_t, z_t)
