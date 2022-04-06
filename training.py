@@ -308,7 +308,8 @@ class Trainer(object):
             c_s (tensor): spatial conditioned code c_s
             z (tensor): latent code z
         '''
-        p_t0 = data.get('points')[0:3]
+        #CHECK
+        p_t0 = data.get('points')[:,:,0:3]
         #TODO
         p_color_t0 = data.get('points')
         occ_t0 = data.get('points.occ')
@@ -322,7 +323,14 @@ class Trainer(object):
             reduction='none')
         loss_occ_t0 = loss_occ_t0.mean()
 
-        return loss_occ_t0
+        oc_t0 = self.model.decode_color(p_color_t0.to(device), c=c_s_color, z=z_color)
+        color_t0 = p_color_t0[:,:,3:]
+        oc_color_t0 = oc_t0[:,:,3:]
+
+        loss_color = torch.sqrt(torch.sum(torch.pow((color_t0 - oc_color_t0), 2), 2))
+        loss_color = torch.sum(loss_color)
+
+        return loss_occ_t0 + loss_color
 
     def get_loss_recon_t(self, data, c_s=None, c_s_color=None, c_t=None, 
                         c_t_color=None, z=None, z_color=None, z_t=None, z_t_color=None):
@@ -347,13 +355,18 @@ class Trainer(object):
             time_val, p_t, c_t=c_t, c_t_color=c_t_color, z=z_t, z_color=z_t_color)
         logits_p_t = self.model.decode(p_t_at_t0, c=c_s, z=z).logits
 
-
-
         loss_occ_t = F.binary_cross_entropy_with_logits(
             logits_p_t, occ_t.view(batch_size, -1), reduction='none')
         loss_occ_t = loss_occ_t.mean()
 
-        return loss_occ_t
+        oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
+        color_t = p_t[:,:,3:]
+        oc_color_t = oc_p_t[:,:,3:]
+
+        loss_color = torch.sqrt(torch.sum(torch.pow((color_t - oc_color_t), 2), 2))
+        loss_color = torch.sum(loss_color)
+
+        return loss_occ_t + loss_color
 
     def compute_loss_corr(self, data, c_t=None, z_t=None):
         ''' Returns the correspondence loss.
