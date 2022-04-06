@@ -132,7 +132,7 @@ class ObjFile:
 
 
         # number of sample points (fix)
-        N = 10 # fix
+        N = 8 # fix
         N_a = int((norm_a/(norm_a + norm_b_orth))*N)
         N_b = N - N_a
 

@@ -25,6 +25,7 @@ data:
 
   dim: 6
   input_type: pcl_seq
+  dim_color: 3
 model:
   z_dim: 0
   c_dim: 512

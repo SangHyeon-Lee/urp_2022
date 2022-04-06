@@ -1,3 +1,4 @@
+from cgi import test
 import enum
 import os
 import util
@@ -18,6 +19,7 @@ x_min, x_max = -200, 200
 y_min, y_max = -200, 200
 z_min, z_max = -200, 200
 
+
 linspace_x = np.linspace(x_min, x_max, 51)
 linspace_y = np.linspace(y_min, y_max, 51)
 linspace_z = np.linspace(z_min, z_max, 51)
@@ -36,6 +38,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
     
 
     testcase_save_dir = save_dir + testcase_name
+    
     if not os.path.exists(testcase_save_dir):
         os.makedirs(testcase_save_dir)
 
@@ -45,6 +48,9 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
         if extension != 'obj':
             continue
         
+        
+        #print(testcase_save_dir, file)
+        output_save_dir = testcase_save_dir + "/" + file[:-4] + ".npz"
 
         # read .obj file
         testcase_dir = dirName + '/' + file
@@ -52,13 +58,13 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
 
         points = np.zeros((0, 3))
         colors = np.zeros((0, 3))
-        for i in tqdm(range(1, len(obj.f), 200)):
+        for i in tqdm(range(1, len(obj.f), 10)):
             x, c = obj.get_points_on_face(i)
 
 
             point_list = []
             color_list = []
-            for j in range(len(x)):
+            for j in range(0, len(x), 2):
                 if np.isnan(x[j, 0]) or np.isnan(x[j, 1]) or np.isnan(x[j, 2]):
                     continue
                 
@@ -81,22 +87,71 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
 
 
         # voxelization
+        voxel_min_bound = np.array([[x_min],[y_min],[z_min]])
+        voxel_max_bound = np.array([[x_max],[y_max],[z_max]])
         v_size = round (max(pcd.get_max_bound() - pcd.get_min_bound())* 0.005, 4)
-        voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(pcd, voxel_size=v_size)
+        voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(pcd, 8, voxel_min_bound, voxel_max_bound)
 
-        #o3d.visualization.draw_geometries([voxel_grid])
+
+        o3d.visualization.draw_geometries([voxel_grid])
         voxel = voxel_grid.get_voxels()
         voxel_pos = np.array([vox.grid_index for vox in voxel])
         voxel_color = np.array([vox.color for vox in voxel])
 
 
-        print(voxel_pos[:10])
-        break
+        #print(voxel_pos[:30])
+        #print(voxel_grid)
+        abs_pos = (voxel_grid.origin + 8 * voxel_pos)
+        print(abs_pos[:10])
+        #print(min(abs_pos[:, 2]))
+
+        print(np.shape(abs_pos))
+        print(voxel_color[:10])
+
+        
 
 
-    break
 
 
 
-    print(dirName)
-    print(x_max, x_min, y_max, y_min, z_max, z_min)
+        points = np.zeros((0, 3))
+        occupancies = np.zeros((0, 1), dtype=np.int_)
+        colors = np.zeros((0, 3))
+
+
+        for x in tqdm(linspace_x):
+            for y in linspace_y:
+                for z in linspace_z:
+
+                    # initial values
+                    point = np.array([[x, y, z]])
+                    occupancy = np.array([[0]], dtype=np.int_)
+                    color = np.array([[np.NaN, np.NaN, np.NaN]])
+                    
+                    for i, pos in enumerate(abs_pos):
+                        if x == pos[0] and y == pos[1] and z == pos[2]:
+                            #print(x, y, z)
+                            occupancy = np.array([[1]], dtype=np.int_)
+                            color = np.array([voxel_color[i]])
+                            break
+                    
+                    points = np.concatenate([points, point])
+                    occupancies = np.concatenate([occupancies, occupancy])
+                    colors = np.concatenate([colors, color])
+
+
+
+
+
+        out_dict = {}
+        out_dict['points'] = points
+        out_dict['occupancies'] = occupancies
+        out_dict['colors'] = colors
+
+
+        np.savez(output_save_dir, points=points, occupancies=occupancies, colors=colors)
+
+
+
+    #print(dirName)
+    #print(x_max, x_min, y_max, y_min, z_max, z_min)
