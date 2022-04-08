@@ -7,8 +7,10 @@ from models.data.subseq_dataset import (
 )
 from models.data.fields import (
     IndexField, CategoryField,
-    PointsSubseqField, ImageSubseqField,
+    PointsSubseqField_, ImageSubseqField,
     PointCloudSubseqField, MeshSubseqField,
+    ColorPointSubseqField,
+    PointsSubseqField, ## (FIX)
 )
 
 from models.data.transforms import (
@@ -17,6 +19,7 @@ from models.data.transforms import (
     SubsamplePoints,
     # Temporal transforms
     SubsamplePointsSeq, SubsamplePointcloudSeq,
+    SubsampleColorPointsSeq,
 )
 
 

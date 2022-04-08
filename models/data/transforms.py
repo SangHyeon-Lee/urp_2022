@@ -114,6 +114,29 @@ class SubsamplePoints(object):
             })
         return data_out
 
+class SubsampleColorPointsSeq(object): # (fix) name
+    def __init__(self, N, connected_samples=False, random=True):
+        self.N = N
+        self.connected_samples = connected_samples # always False?
+        self.random = random
+    
+    def __call__(self, data):
+        data_out = data.copy()
+        points = data[None]
+        n_steps, T, dim = points.shape
+        N_max = min(self.N, T)
+        if self.connected_samples or not self.random:
+            indices = (np.random.randint(T, size=self.N) if self.random else np.arange(N_max))
+            data_out[None] = points[:, indices, :]
+        
+        else:
+            indices = np.random.randint(T, size=self.N) if self.random else np.arange(N_max)
+        data_out[None] = \
+                points[np.arange(n_steps).reshape(-1, 1), indices, :]
+
+
+        return data_out 
+
 
 class SubsamplePointcloudSeq(object):
     ''' Point cloud sequence subsampling transformation class.
@@ -196,3 +219,6 @@ class SubsamplePointsSeq(object):
                 'occ': occ[help_arr, indices, :]
             })
         return data_out
+
+
+        

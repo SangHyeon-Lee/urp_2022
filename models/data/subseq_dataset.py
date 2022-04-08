@@ -55,11 +55,14 @@ class FacesDataset (data.Dataset):
         for c_idx, c in enumerate(categories):
             self.metadata[c]['idx'] = c_idx
 
+        print("(debug)", categories)
 
         # Get all models
         self.models = []
         for c_idx, c in enumerate(categories):
             subpath = os.path.join(dataset_folder, c)
+            print("debug: subpath", subpath)
+
             if split is not None and os.path.exists(
                 os.path.join(subpath, split + '.lst')):
                 split_file = os.path.join(subpath, split + '.lst')
@@ -77,7 +80,6 @@ class FacesDataset (data.Dataset):
                 for i, m in enumerate(models_c)
             ]
 
-        pass
 
     
     def __len__(self):
@@ -90,6 +92,35 @@ class FacesDataset (data.Dataset):
         start_idx = self.models[idx]['start_idx']
         c_idx = self.metadata[category]['idx']
 
+        model_path = os.path.join(self.dataset_folder, category, model)
+        data = {}
+
+        print("debug: len(fields.items)", len(self.fields.items()))
+        for field_name, field in self.fields.items():
+            print(field_name)
+            print("debug, start_idx", start_idx)
+            try:
+                field_data = field.load(model_path, idx, c_idx, start_idx)
+            except Exception:
+                if self.no_except:
+                    return None
+                else:
+                    raise
+            
+            if isinstance(field_data, dict):
+                #print("debug, len(items)", len(field_data.items()))
+                for k, v in field_data.items():
+                    if k in None:
+                        data[field_name] = v
+                    else:
+                        data['%s.%s' % (field_name, k)] = v
+            else:
+                data[field_name] = field_data
+        
+        if self.transform is not None:
+            data = self.transform(data)
+
+        return data
 
     def get_model_dict(self, idx):
         return self.models[idx]
@@ -148,8 +179,6 @@ class FacesDataset (data.Dataset):
         files = os.listdir(model_path)
         for field_name, field in self.fields.items():
             if not field.check_complete(files):
-                logger.warn('Field "%s" is incomplete: %s'
-                            % (field_name, model_path))
                 return False
 
         return True
