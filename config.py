@@ -239,7 +239,7 @@ def get_data_fields(mode, cfg):
         cfg['data']['input_pointcloud_n'],
         connected_samples=False
     )
-    input_field = models.data.ColorPointSubseqField(
+    colored_points = models.data.ColorPointSubseqField(
         cfg['data']['pointcloud_seq_folder'],
         transform, seq_len=cfg['data']['length_sequence']
     )
@@ -255,7 +255,7 @@ def get_data_fields(mode, cfg):
 
     if mode == 'train':
         if cfg['model']['loss_recon']:
-            fields['colored_points'] = input_field
+            fields['colored_points'] = colored_points
             fields['points'] = points
             fields['points_t'] = points_t
 
@@ -301,7 +301,29 @@ def get_data_fields(mode, cfg):
     '''
 
 def get_inputs_field(mode, cfg):
-    return []
+    
+    input_type = cfg['data']['input_type']
+    inputs_field = None
+
+    if input_type is None:
+        inputs_field = None
+    elif input_type == 'img_seq':
+        print("Currently not implemented")
+    elif input_type == 'pcl_seq':
+        print("Currently not implemented")
+    elif input_type == 'end_pointclouds':
+        print("Currently not implemented")
+    elif input_type == 'idx':
+        print("Currently not implemented")
+    elif input_type == 'color_points':
+        # TODO
+
+        pass
+    else:
+        raise ValueError(
+            'Invalid input type (%s)' % input_type)
+    
+    return inputs_field
     pass
 
 
@@ -332,13 +354,12 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
     # Create dataset
     if dataset_type == 'Faces' or dataset_type == 'Humans':
         fields = get_data_fields(mode, cfg)
-        inputs_field = get_inputs_field(mode, cfg)
+        inputs_field = None #get_inputs_field(mode, cfg)
 
-        print("(debug), len fields", len(fields))
-        '''
+        
         if inputs_field is not None:
             fields['inputs'] = inputs_field
-        '''
+        
         if return_idx:
             fields['idx'] = models.data.IndexField()
         

@@ -95,10 +95,10 @@ class FacesDataset (data.Dataset):
         model_path = os.path.join(self.dataset_folder, category, model)
         data = {}
 
-        print("debug: len(fields.items)", len(self.fields.items()))
+        
         for field_name, field in self.fields.items():
-            print(field_name)
             print("debug, start_idx", start_idx)
+            #print("debug, field_name", field_name, "field", field)
             try:
                 field_data = field.load(model_path, idx, c_idx, start_idx)
             except Exception:
@@ -107,6 +107,9 @@ class FacesDataset (data.Dataset):
                 else:
                     raise
             
+            print("debug: try passed")
+
+
             if isinstance(field_data, dict):
                 #print("debug, len(items)", len(field_data.items()))
                 for k, v in field_data.items():

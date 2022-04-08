@@ -78,7 +78,7 @@ class PointsSubseqField_(Field):
         self.unpackbits = unpackbits
 
 
-        print("debug: foler_name", folder_name)
+        print("debug: folder_name", folder_name)
 
     def get_loc_scale(self, mesh):
         ''' Returns location and scale of mesh.
@@ -534,7 +534,7 @@ class PointsSubseqField(Field):
 
         return files
     
-    def load_all_steps(self, files, points_dict, loc0=None, scale0=None):
+    def load_all_steps(self, files, points_dict={}, loc0=None, scale0=None):
         p_list = []
         o_list = []
         c_list = []
@@ -578,7 +578,7 @@ class PointsSubseqField(Field):
 
         return data
 
-    def load_single_step(self, files, points_dict, loc0=None, scale0=None):
+    def load_single_step(self, files, points_dict={}, loc0=None, scale0=None):
 
 
         if self.fixed_time_step is None:
@@ -644,17 +644,15 @@ class ColorPointSubseqField(Field):
     
     
     def load_files(self, model_path, start_idx):
-        # TODO
 
         folder = os.path.join(model_path, self.folder_name)
         files = glob.glob(os.path.join(folder, '*.npz'))
         files.sort()
         files = files[start_idx:start_idx+self.seq_len]
         
-        print("debug", files)
         return files
 
-    def load_all_steps(self, files, points_dict, loc0=None, scale0=None):
+    def load_all_steps(self, files, points_dict={}, loc0=None, scale0=None):
         p_list = []
         o_list = []
         c_list = []
@@ -703,9 +701,10 @@ class ColorPointSubseqField(Field):
 
         return data
 
-    def load_single_step(self, files, points_dict, loc0=None, scale0=None):
-
-
+    def load_single_step(self, files, points_dict={}, loc0=None, scale0=None):
+        
+        #print("debug, load_single_step")
+        
         if self.fixed_time_step is None:
             # random time step
             time_step = np.random.choice(self.seq_len)
@@ -714,11 +713,13 @@ class ColorPointSubseqField(Field):
 
         
         if time_step != 0:
-            points_dict = np.load(files[time_step])
+            points_dict = np.load(files[time_step], allow_pickle=True)
 
+        
         # Load points
         points = points_dict['points'].astype(np.float32)
         occupancies = points_dict['occupancies']
+
         if self.unpackbits:
             occupancies = np.unpackbits(occupancies)[:points.shape[0]]
         occupancies = occupancies.astype(np.float32)
@@ -726,6 +727,8 @@ class ColorPointSubseqField(Field):
 
         # concat points and colors
         color_points = np.concatenate((points, colors), axis=-1)
+
+
 
         if self.seq_len > 1:
             time = np.array(
@@ -739,20 +742,33 @@ class ColorPointSubseqField(Field):
             'time': time,
         }
 
+        #print("debug, data", data)
+
         return data
 
     
     def load(self, model_path, idx, c_idx=None, start_idx=0, **kwargs):
 
+        #print("debug, entered load")
+
         files = self.load_files(model_path, start_idx)
 
+        #print("debug, file paths are loaded")
+        #print(files)
+
         if self.all_steps:
-            data = self.load_all_steps(files, points_dict)
+            #print("debug, branch cond1")
+            data = self.load_all_steps(files)
         else:
-            data = self.load_single_step(files, points_dict)
+            #print("debug, branch else")
+            data = self.load_single_step(files)
         
+        #print("debug, data loaded")
+
         if self.transform is not None:
             data = self.transform(data)
+        
+
         
         return data
 

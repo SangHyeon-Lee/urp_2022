@@ -163,7 +163,7 @@ def collate_remove_none(batch):
     Args:
         batch: batch
     '''
-    print("debug", batch)
+    #print("debug", batch)
     batch = list(filter(lambda x: x is not None, batch))
     return data.dataloader.default_collate(batch)
 
