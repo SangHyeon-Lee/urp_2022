@@ -2,6 +2,10 @@ data:
   path: data/Faces
   dataset: Faces
   classes: ['CoMA']
+  #path: data/Humans
+  #dataset: Humans
+  #classes: ['D-FAUST']
+  
   train_split: train
   val_split: val
   test_split: test
@@ -14,17 +18,17 @@ data:
   points_iou_seq_folder: points_seq
   mesh_seq_folder: mesh_seq
 
-  points_unpackbits: true
+  points_unpackbits: false
   n_training_pcl_points: 100
   n_training_points: 512
 
-  input_pointcloud_corresponding: true
+  input_pointcloud_corresponding: false
   input_pointcloud_n: 300
   input_pointcloud_noise: 0.001
 
 
-  dim: 6
-  input_type: pcl_seq
+  dim: 3
+  input_type: color_point_seq
   dim_color: 3
 model:
   z_dim: 0
@@ -48,6 +52,10 @@ training:
   print_every: 5
 
   n_eval_points: 5000
+
+  batch_size: 16
+  batch_size_val: 1
+
 
 generation:
   interpolate: false

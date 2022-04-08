@@ -168,7 +168,7 @@ def get_transforms(cfg):
 
 
 # from im2mesh/oflow/config.py
-def get_data_fileds(mode, cfg):
+def get_data_fields_(mode, cfg):
     ''' Returns data fields.
 
     Args:
@@ -190,7 +190,7 @@ def get_data_fileds(mode, cfg):
     # Fields
     pts_iou_field = models.data.PointsSubseqField
     pts_corr_field = models.data.PointCloudSubseqField
-
+    
     if mode == 'train':
         if cfg['model']['loss_recon']:
             fields['points'] = pts_iou_field(p_folder, transform=transf_pt,
@@ -201,6 +201,7 @@ def get_data_fileds(mode, cfg):
                                                transform=transf_pt,
                                                seq_len=seq_len,
                                                unpackbits=unpackbits)
+            print("debug: fields", fields['points'])
         # Connectivity Loss:
         if cfg['model']['loss_corr']:
             fields['pointcloud'] = pts_corr_field(pcl_folder,
@@ -216,7 +217,93 @@ def get_data_fileds(mode, cfg):
     elif mode == 'test' and (generate_interpolate or correspondence):
         fields['mesh'] = models.data.MeshSubseqField(mesh_folder, seq_len=seq_len,
                                               only_end_points=True)
+    
     return fields
+
+
+def get_data_fields(mode, cfg):
+    
+    fields = {}
+    seq_len = cfg['data']['length_sequence']
+    p_folder = cfg['data']['points_iou_seq_folder'] # remove
+    pcl_folder = cfg['data']['pointcloud_seq_folder'] # remove
+    mesh_folder = cfg['data']['mesh_seq_folder'] # remove
+    generate_interpolate = cfg['generation']['interpolate'] # remove
+    correspondence = cfg['generation']['correspondence']
+    unpackbits = cfg['data']['points_unpackbits']
+
+
+    # Transform and subsample
+    #get_transforms(cfg)
+    transform = models.data.SubsampleColorPointsSeq(
+        cfg['data']['input_pointcloud_n'],
+        connected_samples=False
+    )
+    input_field = models.data.ColorPointSubseqField(
+        cfg['data']['pointcloud_seq_folder'],
+        transform, seq_len=cfg['data']['length_sequence']
+    )
+
+    points = models.data.PointSubseqField(
+        p_folder, transform=transform, seq_len=seq_len,
+        fixed_time_step=0, unpackbits=unpackbits
+    )
+    points_t = models.data.PointSubseqField(
+        p_folder, transform=transform, seq_len=seq_len,
+        unpackbits=unpackbits
+    )
+
+    if mode == 'train':
+        if cfg['model']['loss_recon']:
+            fields['colored_points'] = input_field
+            fields['points'] = points
+            fields['points_t'] = points_t
+
+    elif mode == 'val':
+        # TODO
+        pass
+    
+    elif mode == 'test':
+        # TODO
+        pass
+
+    return fields
+    
+    '''
+    input_type = cfg['data']['input_type']
+
+    if input_type is None:
+        inputs_field = None
+    elif input_type == 'img_seq':
+        print("Currently not implemented.")
+    elif input_type == 'pcl_seq':
+        print("Currently not implemented.")
+    elif input_type == 'end_pointclouds':
+        print("Currently not implemented.")
+    elif input_type == 'idx':
+        print("Currently not implemented.")
+    elif input_type == 'color_point_seq':
+        transform = models.data.SubsamplePointcloudSeq(
+            cfg['data']['input_pointcloud_n'],
+            connected_samples=False
+        )
+        inputs_field = models.data.ColorPointSubseqField(
+            cfg['data']['pointcloud_seq_folder'], # (fix) config key name
+            transform, seq_len=cfg['data']['length_sequence']
+        )
+    else:
+        raise ValueError(
+            'Invalid input type (%s)' % input_type
+        )
+    
+
+    return inputs_field
+    '''
+
+def get_inputs_field(mode, cfg):
+    return []
+    pass
+
 
 
 # Datasets
@@ -228,7 +315,7 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
 
 
     # load config vars
-    method = cfg['method']
+    #method = cfg['method']
     dataset_type = cfg['data']['dataset']
     dataset_folder = cfg['data']['path']
     categories = cfg['data']['classes']
@@ -242,14 +329,16 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
     split = splits[mode]
 
 
-
-    if dataset_type == 'Faces':
-        fields = get_data_fileds(mode, cfg)
+    # Create dataset
+    if dataset_type == 'Faces' or dataset_type == 'Humans':
+        fields = get_data_fields(mode, cfg)
         inputs_field = get_inputs_field(mode, cfg)
 
+        print("(debug), len fields", len(fields))
+        '''
         if inputs_field is not None:
             fields['inputs'] = inputs_field
-        
+        '''
         if return_idx:
             fields['idx'] = models.data.IndexField()
         
@@ -268,10 +357,12 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
     else:
         raise ValueError ('Invalid datase')
 
+    print("(debug) len dataset:", len(dataset))
+
     return dataset
 
 
-def get_inputs_field(mode, cfg):
+def get_inputs_field_(mode, cfg):
     ''' Returns the inputs fields.
 
     Args:
@@ -323,7 +414,15 @@ def get_inputs_field(mode, cfg):
             transform=transform)
     elif input_type == 'idx':
         inputs_field = models.data.IndexField()
+    elif input_type == 'color_points':
+        # TODO implement load input filed for pointsSeq with color
+
+
+        pass
     else:
         raise ValueError(
             'Invalid input type (%s)' % input_type)
     return inputs_field
+
+
+
