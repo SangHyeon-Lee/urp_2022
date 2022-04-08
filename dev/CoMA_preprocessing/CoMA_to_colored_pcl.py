@@ -51,6 +51,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
         
         #print(testcase_save_dir, file)
         output_save_dir = testcase_save_dir + "/" + file[:-4] + ".npz"
+        print("processing: ", output_save_dir)
 
         # read .obj file
         testcase_dir = dirName + '/' + file
@@ -93,7 +94,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
         voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(pcd, 8, voxel_min_bound, voxel_max_bound)
 
 
-        o3d.visualization.draw_geometries([voxel_grid])
+        #o3d.visualization.draw_geometries([voxel_grid])
         voxel = voxel_grid.get_voxels()
         voxel_pos = np.array([vox.grid_index for vox in voxel])
         voxel_color = np.array([vox.color for vox in voxel])
@@ -102,11 +103,11 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
         #print(voxel_pos[:30])
         #print(voxel_grid)
         abs_pos = (voxel_grid.origin + 8 * voxel_pos)
-        print(abs_pos[:10])
+        #print(abs_pos[:10])
         #print(min(abs_pos[:, 2]))
 
-        print(np.shape(abs_pos))
-        print(voxel_color[:10])
+        #print(np.shape(abs_pos))
+        #print(voxel_color[:10])
 
         
 
@@ -143,10 +144,10 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
 
 
 
-        out_dict = {}
-        out_dict['points'] = points
-        out_dict['occupancies'] = occupancies
-        out_dict['colors'] = colors
+        #out_dict = {}
+        #out_dict['points'] = points
+        #out_dict['occupancies'] = occupancies
+        #out_dict['colors'] = colors
 
 
         np.savez(output_save_dir, points=points, occupancies=occupancies, colors=colors)
