@@ -244,11 +244,11 @@ def get_data_fields(mode, cfg):
         transform, seq_len=cfg['data']['length_sequence']
     )
 
-    points = models.data.PointSubseqField(
+    points = models.data.PointsSubseqField(
         p_folder, transform=transform, seq_len=seq_len,
         fixed_time_step=0, unpackbits=unpackbits
     )
-    points_t = models.data.PointSubseqField(
+    points_t = models.data.PointsSubseqField(
         p_folder, transform=transform, seq_len=seq_len,
         unpackbits=unpackbits
     )

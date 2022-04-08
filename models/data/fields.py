@@ -629,8 +629,6 @@ class PointsSubseqField(Field):
         return data
 
 
-        
-
 class ColorPointSubseqField(Field):
     def __init__(self, folder_name, transform=None, seq_len=17,
                  all_steps=False, fixed_time_step=None, unpackbits=False,
@@ -655,57 +653,106 @@ class ColorPointSubseqField(Field):
         
         print("debug", files)
         return files
-    
-    
-    def load_single_file(self, file_path):
-        ''' Loads single file. Returns points, occupancies, colors
-        Args:
-            file_path (str): file path
-        '''
-        pointcloud_dict = np.load(file_path)
-        points = pointcloud_dict['points'].astype(np.float32)
-        occupancies = pointcloud_dict['occupancies'].astype(np.int32) ## (fix) type check 
-        colors = pointcloud_dict['colors'].astype(np.float32)
 
-        return points, occupancies, colors
+    def load_all_steps(self, files, points_dict, loc0=None, scale0=None):
+        p_list = []
+        o_list = []
+        c_list = []
+        t_list = []
+        cp_list = []
 
-    def get_time_values(self):
-        ''' Returns array of time steps. range of time: [0, 1]
-        '''
-        if self.seq_len > 1:
-            time = np.array([i/(self.seq_len - 1) for i in range(self.seq_len)], dtype=np.float32)
-        else:
-            time = np.array([1]).astype(np.float32)
-        
-        return time
-    
-    def load(self, model_path, idx, c_idx=None, start_idx=0, **kwargs):
-        ''' Loads the colored point cloud sequence field.
-        '''
+        for i, f in enumerate(files):
+            points_dict = np.load(f)
 
-        color_pc_seq = []
-        # get file paths
-        files = self.load_files(model_path, start_idx)
+            # load points
+            points = points_dict['points']
+            if (points.dtype == np.float16):
+                points = points.astype(np.float32)
+                points += 1e-4 * np.random.randn(*points.shape)
+            points = points.astype(np.float32)
+            
+            # load occupancies
+            occupancies = points_dict['occupancies']
+            if self.unpackbits:
+                occupancies = np.unpackbits(occupancies)[:points.shape[0]]
+            occupancies = occupancies.astype(np.float32)
 
-        # Load first colored pcl file ~ useless
+            # load colors
+            colors = points_dict['colors']
+            if (colors.dtype == np.float16):
+                colors = colors.astype(np.float32)
+                colors += 1e-4 * np.random.randn(*colors.shape)
+            colors = colors.astype(np.float32)
 
-        for f in files:
-            points, occupancies, colors = self.load_single_file(f)
 
-            # concat points and colors
-            # p = [x1, x2, x3], c = [c1, c2, c3]
-            #  ==> [p; c] = [x1, x2, x3, c1, c2, c3]
-            colored_points = np.concatenate((points, colors), axis=-1)
+            # concat points and color
+            color_points = np.concatenate((points, colors), axis=-1)
 
-            pc_seq.append(colored_points)
+            p_list.append(points)
+            o_list.append(occupancies)
+            c_list.append(colors)
+            t_list.append(time)
+            cp_list.append(color_points)
+
 
         data = {
-            None: np.stack(color_pc_seq),
-            'time': self.get_time_values(),
+            None: np.stack(cp_list),
+            'occ': np.stack(o_list),
+            'time': np.stack(t_list),
         }
 
+        return data
+
+    def load_single_step(self, files, points_dict, loc0=None, scale0=None):
+
+
+        if self.fixed_time_step is None:
+            # random time step
+            time_step = np.random.choice(self.seq_len)
+        else:
+            time_step = int(self.fixed_time_step)
+
+        
+        if time_step != 0:
+            points_dict = np.load(files[time_step])
+
+        # Load points
+        points = points_dict['points'].astype(np.float32)
+        occupancies = points_dict['occupancies']
+        if self.unpackbits:
+            occupancies = np.unpackbits(occupancies)[:points.shape[0]]
+        occupancies = occupancies.astype(np.float32)
+        colors = points_dict['colors'].astype(np.float32)
+
+        # concat points and colors
+        color_points = np.concatenate((points, colors), axis=-1)
+
+        if self.seq_len > 1:
+            time = np.array(
+                time_step / (self.seq_len - 1), dtype=np.float32)
+        else:
+            time = np.array([1], dtype=np.float32)
+
+        data = {
+            None: color_points,
+            'occ': occupancies,
+            'time': time,
+        }
+
+        return data
+
+    
+    def load(self, model_path, idx, c_idx=None, start_idx=0, **kwargs):
+
+        files = self.load_files(model_path, start_idx)
+
+        if self.all_steps:
+            data = self.load_all_steps(files, points_dict)
+        else:
+            data = self.load_single_step(files, points_dict)
+        
         if self.transform is not None:
             data = self.transform(data)
         
-
         return data
+
