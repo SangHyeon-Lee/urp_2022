@@ -582,7 +582,7 @@ class PointsSubseqField(Field):
             'colors': np.stack(c_list),
             'time': np.stack(t_list),
         }
-        print("debug, dim data", np.shape(data[None]))
+        #print("debug, dim data", np.shape(data[None]))
 
         return data
 
@@ -601,7 +601,7 @@ class PointsSubseqField(Field):
         if time_step != 0:
             points_dict = np.load(files[time_step])
 
-        print("debug, dict", points_dict)
+        #print("debug, dict", points_dict)
 
         # Load points
         points = points_dict['points'].astype(np.float32)
@@ -715,7 +715,7 @@ class ColorPointSubseqField(Field):
             'time': np.stack(t_list),
         }
 
-        print("debug, dim data", np.shape(data[None]))
+        #print("debug, dim data", np.shape(data[None]))
 
         return data
 

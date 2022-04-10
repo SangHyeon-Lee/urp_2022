@@ -55,13 +55,13 @@ class FacesDataset (data.Dataset):
         for c_idx, c in enumerate(categories):
             self.metadata[c]['idx'] = c_idx
 
-        print("(debug)", categories)
+        #print("(debug)", categories)
 
         # Get all models
         self.models = []
         for c_idx, c in enumerate(categories):
             subpath = os.path.join(dataset_folder, c)
-            print("debug: subpath", subpath)
+            #print("debug: subpath", subpath)
 
             if split is not None and os.path.exists(
                 os.path.join(subpath, split + '.lst')):
@@ -97,7 +97,7 @@ class FacesDataset (data.Dataset):
 
         
         for field_name, field in self.fields.items():
-            print("debug, start_idx", start_idx)#, field)
+            #print("debug, start_idx", start_idx)#, field)
             try:
                 field_data = field.load(model_path, idx, c_idx, start_idx)
             except Exception:
@@ -123,7 +123,7 @@ class FacesDataset (data.Dataset):
         if self.transform is not None:
             data = self.transform(data)
         
-        print("debug, data: ", data)
+        #print("debug, data: ", data)
 
         return data
 

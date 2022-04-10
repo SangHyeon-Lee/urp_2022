@@ -51,8 +51,6 @@ print_every = cfg['training']['print_every']
 while True:
     epoch_it += 1
 
-    print(epoch_it)
-
     for batch in train_loader:
         it += 1
 
