@@ -241,12 +241,14 @@ def get_data_fields(mode, cfg):
     )
     colored_points = models.data.ColorPointSubseqField(
         cfg['data']['pointcloud_seq_folder'],
-        transform, seq_len=cfg['data']['length_sequence']
+        transform, seq_len=cfg['data']['length_sequence'],
+        all_steps=True
     )
 
     points = models.data.PointsSubseqField(
         p_folder, transform=transform, seq_len=seq_len,
-        fixed_time_step=0, unpackbits=unpackbits
+        fixed_time_step=0, unpackbits=unpackbits,
+        all_steps=True
     )
     points_t = models.data.PointsSubseqField(
         p_folder, transform=transform, seq_len=seq_len,
@@ -378,7 +380,7 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
     else:
         raise ValueError ('Invalid datase')
 
-    
+
     return dataset
 
 

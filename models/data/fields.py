@@ -567,6 +567,9 @@ class PointsSubseqField(Field):
                 colors += 1e-4 * np.random.randn(*colors.shape)
             colors = colors.astype(np.float32)
 
+            # time
+            time = np.array(i/(self.seq_len - 1), dtype=np.float32)
+
             p_list.append(points)
             o_list.append(occupancies)
             c_list.append(colors)
@@ -693,6 +696,8 @@ class ColorPointSubseqField(Field):
                 colors += 1e-4 * np.random.randn(*colors.shape)
             colors = colors.astype(np.float32)
 
+            # time
+            time = np.array(i/(self.seq_len - 1), dtype=np.float32)
 
             # concat points and color
             color_points = np.concatenate((points, colors), axis=-1)
