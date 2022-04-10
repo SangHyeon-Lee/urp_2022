@@ -201,7 +201,7 @@ def get_data_fields_(mode, cfg):
                                                transform=transf_pt,
                                                seq_len=seq_len,
                                                unpackbits=unpackbits)
-            print("debug: fields", fields['points'])
+            #print("debug: fields", fields['points'])
         # Connectivity Loss:
         if cfg['model']['loss_corr']:
             fields['pointcloud'] = pts_corr_field(pcl_folder,
