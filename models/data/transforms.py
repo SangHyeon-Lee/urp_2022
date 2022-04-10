@@ -123,6 +123,7 @@ class SubsampleColorPointsSeq(object): # (fix) name
     def __call__(self, data):
         data_out = data.copy()
         points = data[None]
+        print("debug, dim: ", np.shape(data[None]))
         n_steps, T, dim = points.shape
         N_max = min(self.N, T)
         if self.connected_samples or not self.random:

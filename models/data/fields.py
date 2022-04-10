@@ -518,7 +518,7 @@ class PointsSubseqField(Field):
     def __init__(self, folder_name, transform=None, seq_len=17,
                  all_steps=False, fixed_time_step=None, unpackbits=False,
                  **kwargs):
-        self.folder_name = folder_name
+        self.folder_name = 'pcl_seq'# FIXfolder_name
         self.transform = transform
         self.seq_len = seq_len
         self.all_steps = all_steps
@@ -528,9 +528,13 @@ class PointsSubseqField(Field):
 
     def load_files (self, model_path, start_idx):
         folder = os.path.join(model_path, self.folder_name)
-        files = glob.glob(os.path.join(folder, '*.npz'))
+        files = glob.glob(os.path.join(folder, '*.npz'))        
         files.sort()
         files = files[start_idx:start_idx+self.seq_len]
+
+        #print("FILES:", files, self.folder_name)
+        #print("debug, range:", start_idx, start_idx+self.seq_len)
+        
 
         return files
     
@@ -575,6 +579,7 @@ class PointsSubseqField(Field):
             'colors': np.stack(c_list),
             'time': np.stack(t_list),
         }
+        print("debug, dim data", np.shape(data[None]))
 
         return data
 
@@ -583,13 +588,17 @@ class PointsSubseqField(Field):
 
         if self.fixed_time_step is None:
             # random time step
-            time_step = np.random.choice(self.seq_len)
+            time_step = np.random.choice(self.seq_len - 1) + 1
         else:
             time_step = int(self.fixed_time_step)
 
+        if time_step == 0:
+            time_step = 1 # FIX
         
         if time_step != 0:
             points_dict = np.load(files[time_step])
+
+        print("debug, dict", points_dict)
 
         # Load points
         points = points_dict['points'].astype(np.float32)
@@ -618,10 +627,12 @@ class PointsSubseqField(Field):
 
         files = self.load_files(model_path, start_idx)
 
+        #print(files)
+
         if self.all_steps:
-            data = self.load_all_steps(files, points_dict)
+            data = self.load_all_steps(files)
         else:
-            data = self.load_single_step(files, points_dict)
+            data = self.load_single_step(files)
         
         if self.transform is not None:
             data = self.transform(data)
@@ -649,7 +660,7 @@ class ColorPointSubseqField(Field):
         files = glob.glob(os.path.join(folder, '*.npz'))
         files.sort()
         files = files[start_idx:start_idx+self.seq_len]
-        
+
         return files
 
     def load_all_steps(self, files, points_dict={}, loc0=None, scale0=None):
@@ -658,7 +669,7 @@ class ColorPointSubseqField(Field):
         c_list = []
         t_list = []
         cp_list = []
-
+        
         for i, f in enumerate(files):
             points_dict = np.load(f)
 
@@ -699,6 +710,8 @@ class ColorPointSubseqField(Field):
             'time': np.stack(t_list),
         }
 
+        print("debug, dim data", np.shape(data[None]))
+
         return data
 
     def load_single_step(self, files, points_dict={}, loc0=None, scale0=None):
@@ -707,14 +720,17 @@ class ColorPointSubseqField(Field):
         
         if self.fixed_time_step is None:
             # random time step
-            time_step = np.random.choice(self.seq_len)
+            time_step = np.random.choice(self.seq_len - 1) + 1
         else:
             time_step = int(self.fixed_time_step)
 
         
-        if time_step != 0:
-            points_dict = np.load(files[time_step], allow_pickle=True)
+        #print("debug, files", files)
 
+        if time_step != 0:
+            points_dict = np.load(files[time_step])
+
+        print("debug, time_step %d" % (time_step))
         
         # Load points
         points = points_dict['points'].astype(np.float32)
@@ -765,10 +781,12 @@ class ColorPointSubseqField(Field):
         
         #print("debug, data loaded")
 
-        if self.transform is not None:
+        #print(data)
+
+        if False and self.transform is not None:
             data = self.transform(data)
         
-
+        #print("debug, data_transformed")
         
         return data
 

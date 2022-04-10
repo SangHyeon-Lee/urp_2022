@@ -97,31 +97,33 @@ class FacesDataset (data.Dataset):
 
         
         for field_name, field in self.fields.items():
-            print("debug, start_idx", start_idx)
-            #print("debug, field_name", field_name, "field", field)
+            print("debug, start_idx", start_idx)#, field)
             try:
                 field_data = field.load(model_path, idx, c_idx, start_idx)
             except Exception:
-                if self.no_except:
-                    return None
-                else:
-                    raise
+                raise
+                
             
-            print("debug: try passed")
+            #print("debug: try passed")
 
 
             if isinstance(field_data, dict):
-                #print("debug, len(items)", len(field_data.items()))
+                #print("debug, (items)", (field_data.items()))
                 for k, v in field_data.items():
-                    if k in None:
+                    #print("debug, data_temp:", data)
+                    if k is None:
                         data[field_name] = v
                     else:
                         data['%s.%s' % (field_name, k)] = v
             else:
                 data[field_name] = field_data
         
+            #print("######################", data)
+
         if self.transform is not None:
             data = self.transform(data)
+        
+        print("debug, data: ", data)
 
         return data
 

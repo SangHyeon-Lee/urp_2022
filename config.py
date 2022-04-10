@@ -378,8 +378,7 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
     else:
         raise ValueError ('Invalid datase')
 
-    print("(debug) len dataset:", len(dataset))
-
+    
     return dataset
 
 

@@ -14,6 +14,9 @@ train_dataset = config.get_dataset('train', cfg)
 val_dataset = config.get_dataset('val', cfg)
 
 
+#print(train_dataset.models)
+#assert(0)
+
 # Shorthands
 batch_size = cfg['training']['batch_size']
 batch_size_val = cfg['training']['batch_size_val']
