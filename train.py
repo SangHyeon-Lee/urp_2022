@@ -32,6 +32,7 @@ val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, num
 
 # Model
 model = config.get_model(cfg, device=device, dataset=train_dataset)
+model = model.to(device)
 
 # Optimizer
 optimizer = optim.Adam(model.parameters())
@@ -53,7 +54,7 @@ while True:
 
     for batch in train_loader:
         it += 1
-
+        
         loss = trainer.train_step(batch)
 
         if print_every > 0 and (it % print_every) == 0:

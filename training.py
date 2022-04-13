@@ -324,8 +324,8 @@ class Trainer(object):
         loss_occ_t0 = loss_occ_t0.mean()
 
         oc_t0 = self.model.decode_color(p_color_t0.to(device), c=c_s_color, z=z_color)
-        color_t0 = p_color_t0[:,:,3:]
-        oc_color_t0 = oc_t0[:,:,3:]
+        color_t0 = p_color_t0[:,:,:,3:]
+        oc_color_t0 = oc_t0[:,:,:,3:]
 
         loss_color = torch.sqrt(torch.sum(torch.pow((color_t0 - oc_color_t0), 2), 2))
         loss_color = torch.sum(loss_color)
@@ -346,8 +346,11 @@ class Trainer(object):
         #TODO
         device = self.device
 
+        # batch x pts_num x 6
         p_t = data.get('points_t').to(device)
+        # batch x pts_num x 1
         occ_t = data.get('points_t.occ').to(device)
+        # batch
         time_val = data.get('points_t.time').to(device)
         batch_size, n_pts, p_dim = p_t.shape
 
@@ -429,7 +432,13 @@ class Trainer(object):
         '''
         device = self.device
         # Encode inputs
-        inputs = data.get('inputs', torch.empty(1, 1, 0)).to(device)
+        # for k in data.keys():
+        #     print(k)
+        #     print(data.get(k).size())
+        # print(data.get('points.time'))
+
+        # inputs = batch x time x num_points x 6
+        inputs = data.get('colored_points', torch.empty(1, 1, 0)).to(device)
         c_s, c_s_color, c_t, c_t_color = self.model.encode_inputs(inputs)
         q_z, q_z_color, q_z_t, q_z_t_color = self.model.infer_z(
             inputs, c=c_t, data=data)
@@ -451,5 +460,5 @@ class Trainer(object):
         # Correspondence Loss
         loss_corr = self.compute_loss_corr(data, c_t, z_t)
 
-        loss = loss_recon + loss_corr + loss_kl
+        loss = loss_recon + loss_corr + loss_kl + loss_kl_color
         return loss

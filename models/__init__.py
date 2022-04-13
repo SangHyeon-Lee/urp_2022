@@ -126,7 +126,7 @@ class OccupancyFlow(nn.Module):
             c (tensor): latent conditioned code c
         '''
         if self.encoder_latent is not None:
-            mean_z, logstd_z = self.encoder_latent(inputs[:,:,0:3], c, data=data)
+            mean_z, logstd_z = self.encoder_latent(inputs[:,:,:,0:3], c, data=data)
         else:
             batch_size = inputs.size(0)
             mean_z = torch.empty(batch_size, 0).to(self.device)
@@ -222,6 +222,7 @@ class OccupancyFlow(nn.Module):
 
         Args:
             inputs (tensor): input tensor)
+            batch x time x num_points x 6
         '''
         batch_size = inputs.shape[0]
         device = self.device
@@ -230,7 +231,7 @@ class OccupancyFlow(nn.Module):
             c_t = self.encoder(inputs)
         '''
         if self.encoder_temporal is not None:
-            c_t = self.encoder_temporal(inputs[:,:,0:3])
+            c_t = self.encoder_temporal(inputs[:,:,:,0:3])
         else:
             c_t = torch.empty(batch_size, 0).to(device)
 
@@ -252,7 +253,9 @@ class OccupancyFlow(nn.Module):
 
         # Reduce to only first time step
         if len(inputs.shape) > 1:
-            inputs = inputs[:, 0, :]
+            inputs = inputs[:, 0, :, :]
+
+        print(inputs.size())
 
         if self.encoder is not None:
             c = self.encoder(inputs[:,:,0:3])
@@ -272,6 +275,7 @@ class OccupancyFlow(nn.Module):
         Args:
             inputs (tensor): inputs tensor
         '''
+        print(inputs.shape)
         c_s, c_s_color = self.encode_spatial_inputs(inputs)
         c_t, c_t_color = self.encode_temporal_inputs(inputs)
 
@@ -320,7 +324,9 @@ class OccupancyFlow(nn.Module):
 
         Args:
             t (tensor): time values of the points
+            => batch
             p (tensor): points tensor
+            => batch x pts_num x 6
             z (tensor): latent code z
             c_t (tensor): latent conditioned temporal code c_t
         '''
@@ -344,7 +350,9 @@ class OccupancyFlow(nn.Module):
 
         Args:
             t (tensor): time values
+            => batch
             p (tensor): points tensor
+            => batch x num_pts x 6
             c_t (tensor): latent conditioned temporal code
             z (tensor): latent code
             t_batch (tensor): helper time tensor for batch processing of points
@@ -383,6 +391,7 @@ class OccupancyFlow(nn.Module):
         p_color_out = self.disentangle_vf_output_color(
             s_color, c_dim=c_color_dim, z_dim=z_color_dim, return_start=return_start)
 
+        # output: p_out = [..., 3], p_color_out = [..., 6]
         return p_out, p_color_out, t_order
 
     def return_time_steps(self, t):
