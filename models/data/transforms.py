@@ -123,6 +123,15 @@ class SubsampleColorPointsSeq(object): # (fix) name
     def __call__(self, data):
         data_out = data.copy()
         points = data[None]
+        occ = data['occ']
+
+        if isinstance(self.N, int):
+            idx = np.random.randint(points.shape[0], size=self.N)
+            data_out.update({
+                None: points[idx, :],
+                'occ': occ[idx],
+            })
+
         
         # if points only includes single time step 
         if len(np.shape(points)) == 2:
