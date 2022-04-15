@@ -432,9 +432,9 @@ class Trainer(object):
         '''
         device = self.device
         # Encode inputs
-        # for k in data.keys():
-        #     print(k)
-        #     print(data.get(k).size())
+        for k in data.keys():
+            print(k)
+            print(data[k].shape)
         # print(data.get('points.time'))
 
         # inputs = batch x time x num_points x 6

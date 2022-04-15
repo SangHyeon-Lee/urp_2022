@@ -636,10 +636,16 @@ class PointsSubseqField(Field):
             data = self.load_all_steps(files)
         else:
             data = self.load_single_step(files)
-        
+
+
+        #print("debug, dim data (before)", np.shape(data[None]))
         if self.transform is not None:
+            #print("debug: points_t transfrom start")
             data = self.transform(data)
+            #print("debug: points_t transfrom end")
         
+        #print("debug, dim data (after)", np.shape(data[None]))
+
         return data
 
 
@@ -788,7 +794,7 @@ class ColorPointSubseqField(Field):
 
         #print(data)
 
-        if False and self.transform is not None:
+        if self.transform is not None:
             data = self.transform(data)
         
         #print("debug, data_transformed")

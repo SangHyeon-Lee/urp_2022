@@ -23,10 +23,10 @@ batch_size_val = cfg['training']['batch_size_val']
 
 
 # Dataloader
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, num_workers=4, shuffle=True,
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, num_workers=0, shuffle=True,
                                             collate_fn=data.collate_remove_none,
                                             worker_init_fn=data.worker_init_fn)
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, num_workers=4, shuffle=False,
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, num_workers=0, shuffle=False,
                                         collate_fn=data.collate_remove_none,
                                         worker_init_fn=data.worker_init_fn)
 

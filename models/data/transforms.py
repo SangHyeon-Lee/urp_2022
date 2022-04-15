@@ -125,17 +125,38 @@ class SubsampleColorPointsSeq(object): # (fix) name
         points = data[None]
         occ = data['occ']
 
+        
+        #print("N:", self.N)
         if isinstance(self.N, int):
             idx = np.random.randint(points.shape[0], size=self.N)
-            data_out.update({
-                None: points[idx, :],
-                'occ': occ[idx],
-            })
 
+            is_color = 'colors' in data_out
+
+            #print("occ_shape:", occ.shape)
+
+            if len(points.shape) == 3:
+                data_out.update({
+                    None: points[:, idx, :],
+                })
+            else:
+                data_out.update({
+                    None: points[idx, :]
+                })
+
+            if len(occ.shape) == 3:
+                data_out['occ'] = occ[:, idx]
+            else:
+                data_out['occ'] = occ[idx]
+            
+            if is_color:
+                if len(occ.shape) == 3:
+                    data_out['colors'] = data['colors'][:, idx, :]
+                else:
+                    data_out['colors'] = data['colors'][idx, :]
         
         # if points only includes single time step 
         if len(np.shape(points)) == 2:
-            return points
+            return data_out
 
         n_steps, T, dim = points.shape
         N_max = min(self.N, T)
@@ -148,6 +169,7 @@ class SubsampleColorPointsSeq(object): # (fix) name
         data_out[None] = \
                 points[np.arange(n_steps).reshape(-1, 1), indices, :]
 
+        #print("FINAL_SHAPE:", data_out[None].shape)
 
         return data_out 
 

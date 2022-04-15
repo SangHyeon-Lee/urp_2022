@@ -127,7 +127,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
                     # initial values
                     point = np.array([[x, y, z]])
                     occupancy = np.array([[0]], dtype=np.int_)
-                    color = np.array([[np.NaN, np.NaN, np.NaN]])
+                    color = np.array([[0, 0, 0]])
                     
                     for i, pos in enumerate(abs_pos):
                         if x == pos[0] and y == pos[1] and z == pos[2]:
