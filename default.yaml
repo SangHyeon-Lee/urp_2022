@@ -29,7 +29,7 @@ data:
 
   dim: 3
   input_type: color_point_seq
-  dim_color: 3
+  dim_color: 6
 model:
   z_dim: 0
   c_dim: 512

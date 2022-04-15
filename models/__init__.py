@@ -7,6 +7,7 @@ import models.encoder_latent
 import models.decoder
 import models.pointnet
 import models.velocity_field
+import models.encoder_color
 
 class OccupancyFlow(nn.Module):
     ''' Occupancy Flow model class.
@@ -37,7 +38,9 @@ class OccupancyFlow(nn.Module):
     def __init__(
         self, decoder, encoder=None, encoder_latent=None,
             encoder_latent_temporal=None,
-            encoder_temporal=None, vector_field=None, vector_color_field=None,
+            encoder_temporal=None, vector_field=None, encoder_color=None, 
+            encoder_temporal_color=None, decoder_color = None, 
+            vector_color_field=None,
             ode_step_size=None, use_adjoint=False,
             rtol=0.001, atol=0.00001, ode_solver='dopri5', p0_z=None, p0_z_color=None,
             device=None, input_type=None, **kwargs):
@@ -59,11 +62,11 @@ class OccupancyFlow(nn.Module):
         
 
         #FIX
-        self.decoder_color = None
+        self.decoder_color = decoder_color
         self.encoder_latent_color = None
         self.encoder_latent_temporal_color = None
-        self.encoder_color = None
-        self.encoder_temporal_color = None
+        self.encoder_color = encoder_color
+        self.encoder_temporal_color = encoder_temporal_color
 
         self.vector_color_field = vector_color_field
 
@@ -230,6 +233,9 @@ class OccupancyFlow(nn.Module):
         if self.input_type == 'idx':
             c_t = self.encoder(inputs)
         '''
+
+        print(inputs.size())
+
         if self.encoder_temporal is not None:
             c_t = self.encoder_temporal(inputs[:,:,:,0:3])
         else:
@@ -275,7 +281,7 @@ class OccupancyFlow(nn.Module):
         Args:
             inputs (tensor): inputs tensor
         '''
-        print(inputs.shape)
+        # print(inputs.shape)
         c_s, c_s_color = self.encode_spatial_inputs(inputs)
         c_t, c_t_color = self.encode_temporal_inputs(inputs)
 
@@ -391,7 +397,7 @@ class OccupancyFlow(nn.Module):
         p_color_out = self.disentangle_vf_output_color(
             s_color, c_dim=c_color_dim, z_dim=z_color_dim, return_start=return_start)
 
-        # output: p_out = [..., 3], p_color_out = [..., 6]
+        # output shape: p_out = [..., 3], p_color_out = [..., 6]
         return p_out, p_color_out, t_order
 
     def return_time_steps(self, t):

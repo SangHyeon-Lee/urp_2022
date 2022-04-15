@@ -19,32 +19,30 @@ def load_config(path):
 
 def get_decoder(cfg, device, dim=3, c_dim=0, z_dim=0):
     
-    decoder = models.decoder.Decoder()
+    decoder = models.decoder.Decoder(dim=dim,z_dim=z_dim, c_dim=c_dim).to(device)
     return decoder
 
 def get_velocity_field(cfg, device, dim=3, c_dim=0, z_dim=0):
     
-    velocity_field = models.velocity_field.VelocityField()
+    velocity_field = models.velocity_field.VelocityField(out_dim=dim, c_dim=c_dim, z_dim=z_dim).to(device)
     return velocity_field
 
 def get_encoder(cfg, device, dataset=None, c_dim=0):
     
-    encoder = models.pointnet.ResnetPointnet()
+    encoder = models.pointnet.ResnetPointnet(c_dim=c_dim).to(device)
     return encoder
 
 def get_encoder_latent(cfg, device, c_dim=0, z_dim=0):
 
-    encoder_latent = models.encoder_latent.PointNet()
-    return encoder_latent
+    return None
 
 def get_encoder_latent_temporal(cfg, device, c_dim=0, z_dim=0):
 
-    encoder_latent_temporal = models.encoder_latent.PointNet()
-    return encoder_latent_temporal
+    return None
 
 def get_encoder_temporal(cfg, device, dataset=None, c_dim=0, z_dim=0):
     
-    encoder_temporal = models.pointnet.ResnetPointnet()
+    encoder_temporal = models.pointnet.TemporalResnetPointnet(c_dim=c_dim).to(device)
     return encoder_temporal
 
 #############################################
@@ -52,14 +50,19 @@ def get_encoder_temporal(cfg, device, dataset=None, c_dim=0, z_dim=0):
 #############################################
 
 def get_encoder_color(cfg, device, dataset=None, c_dim=0):
-    pass
+    encoder = models.encoder_color.ResnetPointnet(c_dim=c_dim).to(device)
+    return encoder
+
+def get_encoder_temporal_color(cfg, device, dataset=None, c_dim=0, z_dim=0):
+    encoder = models.encoder_color.TemporalResnetPointnet(c_dim=c_dim).to(device)
+    return encoder
 
 def get_decoder_color(cfg, device, dim, c_dim, z_dim):
     pass
 
-def get_velocity_color_field(cfg, device, dim, c_dim, z_dim):
+def get_velocity_color_field(cfg, device, dim_color, c_dim, z_dim):
     
-    velocity_color_field = models.velocity_color_field.VelocityColorField()
+    velocity_color_field = models.velocity_color_field.VelocityColorField(out_dim=dim_color, c_dim=c_dim, z_dim=z_dim).to(device)
     return velocity_color_field
 
 #############################################
@@ -88,8 +91,8 @@ def get_model(cfg, device=None, dataset=None):
 
     dim_color = cfg['data']['dim_color']
 
-    z_dim = cfg['model']['z_dim'] # 128
-    c_dim = cfg['model']['c_dim'] # 0
+    z_dim = cfg['model']['z_dim'] # 0
+    c_dim = cfg['model']['c_dim'] # 512
     input_type = cfg['data']['input_type'] # pcl_seq
     ode_solver = cfg['model']['ode_solver'] # dopri5
     ode_step_size = cfg['model']['ode_step_size'] # ?
@@ -105,12 +108,17 @@ def get_model(cfg, device=None, dataset=None):
     encoder_latent_temporal = get_encoder_latent_temporal(
         cfg, device, c_dim, z_dim)
     encoder_temporal = get_encoder_temporal(cfg, device, dataset, c_dim, z_dim)
+    encoder_color = get_encoder_color(cfg, device, dataset, c_dim)
+    encoder_temporal_color = get_encoder_temporal_color(cfg, device, dataset, c_dim, z_dim)
+    decoder_color = get_decoder_color(cfg, device, dim_color, c_dim, z_dim)
+    
     p0_z = get_prior_z(cfg, device)
 
 
     model = models.OccupancyFlow(decoder=decoder, encoder=encoder, encoder_latent=encoder_latent,
-        encoder_latent_temporal=encoder_latent_temporal,
-        encoder_temporal=encoder_temporal, vector_field=velocity_field, vector_color_field=velocity_color_field,
+        encoder_latent_temporal=encoder_latent_temporal, encoder_temporal=encoder_temporal, 
+        encoder_color=encoder_color, encoder_temporal_color=encoder_temporal_color, decoder_color=decoder_color,
+        vector_field=velocity_field, vector_color_field=velocity_color_field,
         ode_step_size=ode_step_size, use_adjoint=use_adjoint,
         rtol=rtol, atol=atol, ode_solver=ode_solver,
         p0_z=p0_z, device=device, input_type=input_type)

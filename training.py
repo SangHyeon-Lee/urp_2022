@@ -317,7 +317,12 @@ class Trainer(object):
         device = self.device
         batch_size = p_t0.shape[0]
 
+        
+
         logits_t0 = self.model.decode(p_t0.to(device), c=c_s, z=z).logits
+        
+        print(logits_t0.size(), occ_t0.size())
+        
         loss_occ_t0 = F.binary_cross_entropy_with_logits(
             logits_t0, occ_t0.view(batch_size, -1).to(device),
             reduction='none')
@@ -432,9 +437,9 @@ class Trainer(object):
         '''
         device = self.device
         # Encode inputs
-        for k in data.keys():
-            print(k)
-            print(data[k].shape)
+        # for k in data.keys():
+        #     print(k)
+        #     print(data[k].shape)
         # print(data.get('points.time'))
 
         # inputs = batch x time x num_points x 6
