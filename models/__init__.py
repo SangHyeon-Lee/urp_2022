@@ -5,6 +5,7 @@ from utils.torchdiffeq import odeint, odeint_adjoint
 
 import models.encoder_latent
 import models.decoder
+import models.decoder_color
 import models.pointnet
 import models.velocity_field
 import models.encoder_color
@@ -117,6 +118,20 @@ class OccupancyFlow(nn.Module):
         logits = self.decoder(p, z, c, **kwargs)
         p_r = dist.Bernoulli(logits=logits)
         return p_r
+
+    def decode_color(self, p, z=None, c=None, **kwargs):
+        ''' Returns occupancy values for the points p at time step 0.
+
+        Args:
+            p (tensor): points
+            z (tensor): latent code z
+            c (tensor): latent conditioned code c (For OFlow, this is
+                c_spatial)
+        '''
+        color = self.decoder_color(p, z, c, **kwargs)
+        
+        return color
+
 
     def infer_z(self, inputs, c=None, c_color=None, data=None):
         ''' Infers a latent code z.
@@ -234,7 +249,6 @@ class OccupancyFlow(nn.Module):
             c_t = self.encoder(inputs)
         '''
 
-        print(inputs.size())
 
         if self.encoder_temporal is not None:
             c_t = self.encoder_temporal(inputs[:,:,:,0:3])
@@ -260,8 +274,6 @@ class OccupancyFlow(nn.Module):
         # Reduce to only first time step
         if len(inputs.shape) > 1:
             inputs = inputs[:, 0, :, :]
-
-        print(inputs.size())
 
         if self.encoder is not None:
             c = self.encoder(inputs[:,:,0:3])
@@ -367,6 +379,8 @@ class OccupancyFlow(nn.Module):
                 batch processing of points with different time values)
             return_start (bool): whether to return the start points
         '''
+
+
         c_dim = c_t.shape[-1]
         z_dim = z.shape[-1]
 
@@ -379,9 +393,9 @@ class OccupancyFlow(nn.Module):
 
         f_options = {'T_batch': t_batch, 'invert': invert}
 
-        p = self.concat_vf_input(p[:,:,0:3], c=c_t, z=z)
+        p_concat = self.concat_vf_input(p[:,:,0:3], c=c_t, z=z)
         s = self.odeint(
-            self.vector_field, p, t_steps_eval,
+            self.vector_field, p_concat, t_steps_eval,
             method=self.ode_solver, rtol=self.rtol, atol=self.atol,
             options=self.ode_options, f_options=f_options)
 
@@ -494,6 +508,7 @@ class OccupancyFlow(nn.Module):
             c (tensor): latent code z
         '''
         batch_size = p.shape[0]
+
         p_out = p.contiguous().view(batch_size, -1)
         if c is not None and c.shape[-1] != 0:
             assert(c.shape[0] == batch_size)

@@ -57,8 +57,9 @@ def get_encoder_temporal_color(cfg, device, dataset=None, c_dim=0, z_dim=0):
     encoder = models.encoder_color.TemporalResnetPointnet(c_dim=c_dim).to(device)
     return encoder
 
-def get_decoder_color(cfg, device, dim, c_dim, z_dim):
-    pass
+def get_decoder_color(cfg, device, dim=6, c_dim=0, z_dim=0):
+    decoder = models.decoder_color.Decoder(dim=dim,z_dim=z_dim, c_dim=c_dim).to(device)
+    return decoder
 
 def get_velocity_color_field(cfg, device, dim_color, c_dim, z_dim):
     

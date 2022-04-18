@@ -189,8 +189,6 @@ class TemporalResnetPointnet(nn.Module):
         elif len(x.shape) == 4:
             x = x.transpose(1, 2).contiguous().view(batch_size, n_pts, -1)
 
-        print(x.shape)
-
         net = self.fc_pos(x)
         net = self.block_0(net)
         pooled = self.pool(net, dim=1, keepdim=True).expand(net.size())

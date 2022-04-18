@@ -308,32 +308,36 @@ class Trainer(object):
             c_s (tensor): spatial conditioned code c_s
             z (tensor): latent code z
         '''
-        #CHECK
-        p_t0 = data.get('points')[:,:,0:3]
-        #TODO
-        p_color_t0 = data.get('points')
-        occ_t0 = data.get('points.occ')
-
         device = self.device
-        batch_size = p_t0.shape[0]
+        #CHECK
+        #Shape: batch x num x 3
+        p_t0 = data.get('colored_points')[:,0,:,0:3].to(device)
+        #Shape: batch x num x 6
+        p_color_t0 = data.get('colored_points')[:,0,:,:].to(device)
+        #Shape: batch x num
+        occ_t0 = data.get('colored_points.occ')[:,0,:,:].to(device)
 
         
+        batch_size = p_t0.shape[0]
 
         logits_t0 = self.model.decode(p_t0.to(device), c=c_s, z=z).logits
         
-        print(logits_t0.size(), occ_t0.size())
+        # print("DEBUG ", data.get('points').size(), p_t0.size(),logits_t0.size(), occ_t0.size())
         
         loss_occ_t0 = F.binary_cross_entropy_with_logits(
             logits_t0, occ_t0.view(batch_size, -1).to(device),
             reduction='none')
         loss_occ_t0 = loss_occ_t0.mean()
 
-        oc_t0 = self.model.decode_color(p_color_t0.to(device), c=c_s_color, z=z_color)
-        color_t0 = p_color_t0[:,:,:,3:]
-        oc_color_t0 = oc_t0[:,:,:,3:]
+        # print("DEBUG ", loss_occ_t0)
 
-        loss_color = torch.sqrt(torch.sum(torch.pow((color_t0 - oc_color_t0), 2), 2))
-        loss_color = torch.sum(loss_color)
+        # Shape: batch x num x 3(color)
+        oc_t0 = self.model.decode_color(p_color_t0.to(device), c=c_s_color, z=z_color)
+        color_t0 = p_color_t0[:,:,3:]
+
+        loss_color = torch.norm(oc_t0 - color_t0, 2, dim=-1).mean()
+
+        # print("DEBUG ", loss_color)
 
         return loss_occ_t0 + loss_color
 
@@ -351,16 +355,23 @@ class Trainer(object):
         #TODO
         device = self.device
 
-        # batch x pts_num x 6
+        # batch x pts_num x 3
         p_t = data.get('points_t').to(device)
+        # batch x pts_num x 3
+        color_t = data.get('points_t.colors').to(device)
         # batch x pts_num x 1
         occ_t = data.get('points_t.occ').to(device)
         # batch
         time_val = data.get('points_t.time').to(device)
         batch_size, n_pts, p_dim = p_t.shape
 
+        # batch x pts_num x 6
+        p_color_t = torch.cat((p_t, color_t), -1)
+        
+
         p_t_at_t0, p_color_t_at_t0 = self.model.transform_to_t0(
-            time_val, p_t, c_t=c_t, c_t_color=c_t_color, z=z_t, z_color=z_t_color)
+            time_val, p_color_t, c_t=c_t, c_t_color=c_t_color, z=z_t, z_color=z_t_color)
+        
         logits_p_t = self.model.decode(p_t_at_t0, c=c_s, z=z).logits
 
         loss_occ_t = F.binary_cross_entropy_with_logits(
@@ -368,12 +379,10 @@ class Trainer(object):
         loss_occ_t = loss_occ_t.mean()
 
         oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
-        color_t = p_t[:,:,3:]
-        oc_color_t = oc_p_t[:,:,3:]
 
-        loss_color = torch.sqrt(torch.sum(torch.pow((color_t - oc_color_t), 2), 2))
-        loss_color = torch.sum(loss_color)
 
+        loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
+        # print("DEBUG: ", loss_color)
         return loss_occ_t + loss_color
 
     def compute_loss_corr(self, data, c_t=None, z_t=None):

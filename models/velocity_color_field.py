@@ -64,6 +64,7 @@ class VelocityColorField(nn.Module):
         Args:
             inputs (tensor): velocity field inputs
         '''
+
         c_dim = self.c_dim
         z_dim = self.z_dim
         batch_size, device = inputs.shape[0], inputs.device
