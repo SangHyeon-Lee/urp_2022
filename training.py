@@ -188,15 +188,18 @@ class Trainer(object):
         eval_dict = {}
 
         pts_iou = data.get('points').to(device)
+        color_t = data.get('points.colors').to(device)
         occ_iou = data.get('points.occ').squeeze(0)
         pts_iou_t = data.get('points.time').to(device)
 
         batch_size, n_steps, n_pts, dim = pts_iou.shape
 
+        p_color_t = torch.cat((pts_iou, color_t), -1)
+
         # Transform points from later time steps back to t=0
         pts_iou_t0_raw = torch.stack(
             [self.model.transform_to_t0(
-                pts_iou_t[:, i], pts_iou[:, i], z_t, z_t_color, c_t, c_t_color)
+                pts_iou_t[:, i], p_color_t[:, i], z_t, z_t_color, c_t, c_t_color)[0]
                 for i in range(n_steps)], dim=1)
 
         # Reshape latent codes and predicted points tensor
@@ -210,13 +213,9 @@ class Trainer(object):
             1, n_steps, 1).view(batch_size * n_steps, -1)
 
         pts_iou_t0 = pts_iou_t0_raw[0].view(batch_size * n_steps, n_pts, 3)
-        pts_color_iou_t0 = pts_iou_t0_raw[1].view(batch_size * n_steps, n_pts, 6)
+        
         # Calculate predicted occupancy values
         p_r = self.model.decode(pts_iou_t0, z, c_s)
-
-        # TODO
-        p_r_color = self.model.decode_color(
-            pts_color_iou_t0, z_color, c_s_color)
 
         rec_error = -p_r.log_prob(occ_iou.to(device).view(-1, n_pts)).mean(-1)
         rec_error = rec_error.view(batch_size, n_steps).mean(0)
