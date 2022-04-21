@@ -76,14 +76,14 @@ while True:
                   % (epoch_it, it, loss))
             
 
-        if validate_every > 0 and (it % validate_every) == 0:
-            eval_dict = trainer.evaluate(val_loader)
-            metric_val = eval_dict["loss"]
-            print('Validation metric (%s): %.4f'
-                  % ("loss", metric_val))
+        # if validate_every > 0 and (it % validate_every) == 0:
+        #     eval_dict = trainer.evaluate(val_loader)
+        #     metric_val = eval_dict["loss"]
+        #     print('Validation metric (%s): %.4f'
+        #           % ("loss", metric_val))
 
-            for k, v in eval_dict.items():
-                logger.add_scalar('val/%s' % k, v, it)
+        #     for k, v in eval_dict.items():
+        #         logger.add_scalar('val/%s' % k, v, it)
 
             # if model_selection_sign * (metric_val - metric_val_best) > 0:
             #     metric_val_best = metric_val

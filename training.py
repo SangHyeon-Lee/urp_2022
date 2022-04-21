@@ -162,6 +162,7 @@ class Trainer(object):
                     eval_dict[k] = v
                 loss += eval_dict['l2']
 
+            # New evaluation metric with color
             eval_dict_color = self.eval_step_color(data, z, z_color, c_t, c_t_color)
             for (k, v) in eval_dict_color.items():
                     eval_dict[k] = v
@@ -246,10 +247,10 @@ class Trainer(object):
 
         points_t0 = colored_points[:,0,:,:]
 
-        pts_pred, _ = self.model.transform_to_t(points_time, points_t0, z, z_color,
+        _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
 
-        l2 = torch.norm(pts_pred - colored_points, 2, dim=-1).mean(0).mean(-1)
+        l2 = torch.norm(color_pred - colored_points[:,:,:,3:], 2, dim=-1).mean(0).mean(-1)
 
         eval_dict['color_loss'] = l2.sum().item() / len(l2)
 

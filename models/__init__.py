@@ -101,10 +101,11 @@ class OccupancyFlow(nn.Module):
         c_s, c_s_color, c_t, c_t_color = self.encode_inputs(inputs)
         z, z_color, z_t, z_t_color = self.get_z_from_prior((batch_size,), sample=sample)
 
-        p_t_at_t0, _ = self.model.transform_to_t0(time_val, p, c_t=c_t, c_t_color = c_t_color,
+        p_t_at_t0, p_color_at_t0 = self.model.transform_to_t0(time_val, p, c_t=c_t, c_t_color = c_t_color,
                                              z=z_t, z_color=z_t_color)
-        out = self.model.decode(p_t_at_t0, c=c_s, z=z)
-        return out
+        p_out = self.model.decode(p_t_at_t0, c=c_s, z=z)
+        oc_out = self.model.decode_color(p_color_at_t0, c=c_s_color, z=z_color)
+        return p_out, oc_out
 
     def decode(self, p, z=None, c=None, **kwargs):
         ''' Returns occupancy values for the points p at time step 0.
