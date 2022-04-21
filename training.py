@@ -118,7 +118,8 @@ class Trainer(object):
         '''
         self.model.eval()
         device = self.device
-        inputs = data.get('inputs', torch.empty(1, 1, 0)).to(device)
+        inputs = data.get('colored_points', torch.empty(1, 1, 0)).to(device)
+
         eval_dict = {}
         loss = 0
 
@@ -161,8 +162,15 @@ class Trainer(object):
                     eval_dict[k] = v
                 loss += eval_dict['l2']
 
+            eval_dict_color = self.eval_step_color(data, z, z_color, c_t, c_t_color)
+            for (k, v) in eval_dict_color.items():
+                    eval_dict[k] = v
+            loss += eval_dict['color_loss']
+
         eval_dict['loss'] = loss
         return eval_dict
+
+    
 
     def eval_step_iou(self, data, c_s=None, c_t=None, z=None, z_t=None,
                       c_s_color=None, c_t_color=None, z_color=None, z_t_color=None):
@@ -227,6 +235,24 @@ class Trainer(object):
         for i in range(len(iou)):
             eval_dict['iou_t%d' % i] = iou[i]
             eval_dict['rec_error_t%d' % i] = rec_error[i].item()
+
+        return eval_dict
+
+    def eval_step_color(self, data, z=None, z_color=None, c_t=None, c_t_color=None):
+        eval_dict = {}
+        device = self.device
+
+        colored_points = data.get('colored_points').to(device)
+        points_time = data.get('colored_points.time').to(device)[0]
+
+        points_t0 = colored_points[:,0,:,:]
+
+        pts_pred, _ = self.model.transform_to_t(points_time, points_t0, z, z_color,
+                                                c_t, c_t_color)
+
+        l2 = torch.norm(pts_pred - colored_points, 2, dim=-1).mean(0).mean(-1)
+
+        eval_dict['color_loss'] = l2.sum().item() / len(l2)
 
         return eval_dict
 
@@ -451,6 +477,7 @@ class Trainer(object):
 
         # inputs = batch x time x num_points x 6
         inputs = data.get('colored_points', torch.empty(1, 1, 0)).to(device)
+        
         c_s, c_s_color, c_t, c_t_color = self.model.encode_inputs(inputs)
         q_z, q_z_color, q_z_t, q_z_t_color = self.model.infer_z(
             inputs, c=c_t, data=data)
