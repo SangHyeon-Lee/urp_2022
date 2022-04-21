@@ -131,3 +131,8 @@ dmypy.json
 
 # data
 data/
+
+# output
+out/
+train_record.txt
+train_record_detail.txt

@@ -337,8 +337,6 @@ class Trainer(object):
 
         loss_color = torch.norm(oc_t0 - color_t0, 2, dim=-1).mean()
 
-        # print("DEBUG ", loss_color)
-
         return loss_occ_t0 + loss_color
 
     def get_loss_recon_t(self, data, c_s=None, c_s_color=None, c_t=None, 
@@ -382,7 +380,7 @@ class Trainer(object):
 
 
         loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
-        # print("DEBUG: ", loss_color)
+        
         return loss_occ_t + loss_color
 
     def compute_loss_corr(self, data, c_t=None, z_t=None):
