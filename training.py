@@ -212,7 +212,7 @@ class Trainer(object):
         z_color = z_color.unsqueeze(1).repeat(
             1, n_steps, 1).view(batch_size * n_steps, -1)
 
-        pts_iou_t0 = pts_iou_t0_raw[0].view(batch_size * n_steps, n_pts, 3)
+        pts_iou_t0 = pts_iou_t0_raw.view(batch_size * n_steps, n_pts, 3)
         
         # Calculate predicted occupancy values
         p_r = self.model.decode(pts_iou_t0, z, c_s)
