@@ -42,7 +42,8 @@ model:
   loss_recon: true
   loss_corr_bw: false
   vae_beta: 0.0001
-
+  initialize_from: null
+  initialization_file_name: model_best.pt
 test:
   threshold: 0.3
 
@@ -50,7 +51,7 @@ training:
   out_dir: out/00
   eval_sample: true
   print_every: 5
-  validate_every: 10
+  validate_every: 250
   n_eval_points: 5000
 
   batch_size: 16

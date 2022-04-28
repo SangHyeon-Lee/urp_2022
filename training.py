@@ -146,28 +146,28 @@ class Trainer(object):
             loss += loss_kl
 
             # IoU
-            if self.eval_iou:
-                eval_dict_iou = self.eval_step_iou(data, c_s=c_s, c_t=c_t, z=z,
-                                                   z_t=z_t, c_s_color=c_s_color,
-                                                   c_t_color=c_t_color, z_color=z_color,
-                                                   z_t_color=z_t_color)
-                for (k, v) in eval_dict_iou.items():
-                    eval_dict[k] = v
-                loss += eval_dict['rec_error']
-            else:
-                # Correspondence Loss
-                eval_dict_mesh = self.eval_step_corr_l2(
-                    data, c_t=c_t, c_t_color=c_t_color, z_t=z_t, z_t_color=z_t_color)
-                for (k, v) in eval_dict_mesh.items():
-                    eval_dict[k] = v
-                loss += eval_dict['l2']
+            # if self.eval_iou:
+            #     eval_dict_iou = self.eval_step_iou(data, c_s=c_s, c_t=c_t, z=z,
+            #                                        z_t=z_t, c_s_color=c_s_color,
+            #                                        c_t_color=c_t_color, z_color=z_color,
+            #                                        z_t_color=z_t_color)
+            #     for (k, v) in eval_dict_iou.items():
+            #         eval_dict[k] = v
+            #     loss += eval_dict['rec_error']
+            # else:
+            #     # Correspondence Loss
+            #     eval_dict_mesh = self.eval_step_corr_l2(
+            #         data, c_t=c_t, c_t_color=c_t_color, z_t=z_t, z_t_color=z_t_color)
+            #     for (k, v) in eval_dict_mesh.items():
+            #         eval_dict[k] = v
+            #     loss += eval_dict['l2']
 
             # New evaluation metric with color
             eval_dict_color = self.eval_step_color(data, z, z_color, c_t, c_t_color)
             for (k, v) in eval_dict_color.items():
-                    eval_dict[k] = v
+                eval_dict[k] = v
             loss += eval_dict['color_loss']
-
+            loss += eval_dict['l2']
         eval_dict['loss'] = loss
         return eval_dict
 
@@ -188,19 +188,21 @@ class Trainer(object):
         threshold = self.threshold
         eval_dict = {}
 
-        pts_iou = data.get('points').to(device)
-        color_t = data.get('points.colors').to(device)
-        occ_iou = data.get('points.occ').squeeze(0)
-        pts_iou_t = data.get('points.time').to(device)
+        pts_iou = data.get('colored_points')[:,:,:,0:3].to(device)
+        # color_t = data.get('colored_points').to(device)
+        occ_iou = data.get('colored_points.occ').squeeze(0)
+        pts_iou_t = data.get('colored_points.time').to(device)
 
         batch_size, n_steps, n_pts, dim = pts_iou.shape
 
-        p_color_t = torch.cat((pts_iou, color_t), -1)
+        p_color_t = data.get('colored_points').to(device)
+
+        # print(pts_iou.size(), occ_iou.size(), pts_iou_t.size(), p_color_t.size())
 
         # Transform points from later time steps back to t=0
-        pts_iou_t0_raw = torch.stack(
-            [self.model.transform_to_t0(
-                pts_iou_t[:, i], p_color_t[:, i], z_t, z_t_color, c_t, c_t_color)[0]
+        pts_iou_t0 = torch.stack(
+            [(self.model.transform_to_t0(
+                pts_iou_t[:, i], p_color_t[:, i,:,:], c_t=c_t, c_t_color=c_t_color, z=z_t, z_color=z_t_color)[0])
                 for i in range(n_steps)], dim=1)
 
         # Reshape latent codes and predicted points tensor
@@ -208,12 +210,12 @@ class Trainer(object):
             batch_size * n_steps, -1)
         z = z.unsqueeze(1).repeat(1, n_steps, 1).view(batch_size * n_steps, -1)
 
-        c_s_color = c_s_color.unsqueeze(1).repeat(1, n_steps, 1).view(
-            batch_size * n_steps, -1)
-        z_color = z_color.unsqueeze(1).repeat(
-            1, n_steps, 1).view(batch_size * n_steps, -1)
+        # c_s_color = c_s_color.unsqueeze(1).repeat(1, n_steps, 1).view(
+        #     batch_size * n_steps, -1)
+        # z_color = z_color.unsqueeze(1).repeat(
+        #     1, n_steps, 1).view(batch_size * n_steps, -1)
 
-        pts_iou_t0 = pts_iou_t0_raw.view(batch_size * n_steps, n_pts, 3)
+        pts_iou_t0 = pts_iou_t0.view(batch_size * n_steps, n_pts, 3)
         
         # Calculate predicted occupancy values
         p_r = self.model.decode(pts_iou_t0, z, c_s)
@@ -226,12 +228,14 @@ class Trainer(object):
 
         # Calculate IoU
         occ_gt = (occ_iou >= 0.5).numpy()
+
         iou = compute_iou(
             occ_pred.reshape(-1, n_pts), occ_gt.reshape(-1, n_pts))
         iou = iou.reshape(batch_size, n_steps).mean(0)
 
         eval_dict['iou'] = iou.sum() / len(iou)
         eval_dict['rec_error'] = rec_error.sum().item() / len(rec_error)
+        # print(eval_dict['iou'], eval_dict['rec_error'])
         for i in range(len(iou)):
             eval_dict['iou_t%d' % i] = iou[i]
             eval_dict['rec_error_t%d' % i] = rec_error[i].item()
@@ -247,13 +251,19 @@ class Trainer(object):
 
         points_t0 = colored_points[:,0,:,:]
 
-        _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
+        point_pred, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
 
-        l2 = torch.norm(color_pred - colored_points[:,:,:,3:], 2, dim=-1).mean(0).mean(-1)
+        l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
+        l2_color = torch.norm(color_pred[:,:,:,3:] - colored_points[:,:,:,3:], 2, dim=-1).mean(0).mean(-1)
+        
+        eval_dict['l2'] = l2.sum().item() / len(l2)
+        for i in range(len(l2)):
+            eval_dict['l2_%d' % (i+1)] = l2[i].item()
 
-        eval_dict['color_loss'] = l2.sum().item() / len(l2)
-
+        eval_dict['color_loss'] = l2_color.sum().item() / len(l2_color)
+        for i in range(len(l2_color)):
+            eval_dict['color_loss%d' % (i+1)] = l2_color[i].item()
         return eval_dict
 
     def eval_step_corr_l2(self, data, c_t=None, c_t_color=None, z_t=None, z_t_color=None):

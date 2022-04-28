@@ -244,35 +244,59 @@ def get_data_fields(mode, cfg):
 
     # Transform and subsample
     #get_transforms(cfg)
-    transform = models.data.SubsampleColorPointsSeq(
-        cfg['data']['input_pointcloud_n'],
-        connected_samples=False
-    )
-    colored_points = models.data.ColorPointSubseqField(
-        cfg['data']['pointcloud_seq_folder'],
-        transform, seq_len=cfg['data']['length_sequence'],
-        all_steps=True
-    )
-
-    points = models.data.PointsSubseqField(
-        p_folder, transform=transform, seq_len=seq_len,
-        fixed_time_step=0, unpackbits=unpackbits,
-        all_steps=True
-    )
-    points_t = models.data.PointsSubseqField(
-        p_folder, transform=transform, seq_len=seq_len,
-        unpackbits=unpackbits
-    )
+    
 
     if mode == 'train':
+
+        transform = models.data.SubsampleColorPointsSeq(
+        cfg['data']['input_pointcloud_n'],
+        connected_samples=False
+        )
+        colored_points = models.data.ColorPointSubseqField(
+            cfg['data']['pointcloud_seq_folder'],
+            transform, seq_len=cfg['data']['length_sequence'],
+            all_steps=True
+        )
+
+        points = models.data.PointsSubseqField(
+            p_folder, transform=transform, seq_len=seq_len,
+            fixed_time_step=0, unpackbits=unpackbits,
+            all_steps=True
+        )
+        points_t = models.data.PointsSubseqField(
+            p_folder, transform=transform, seq_len=seq_len,
+            unpackbits=unpackbits
+        )
+
         if cfg['model']['loss_recon']:
             fields['colored_points'] = colored_points
             fields['points'] = points
             fields['points_t'] = points_t
 
     elif mode == 'val':
-        # TODO
-        pass
+        transform = models.data.SubsampleColorPointsSeq(
+        cfg['training']['n_eval_points'],
+        connected_samples=False
+        )
+        colored_points = models.data.ColorPointSubseqField(
+            cfg['data']['pointcloud_seq_folder'],
+            transform, seq_len=cfg['data']['length_sequence'],
+            all_steps=True
+        )
+
+        points = models.data.PointsSubseqField(
+            p_folder, transform=transform, seq_len=seq_len,
+            fixed_time_step=0, unpackbits=unpackbits,
+            all_steps=True
+        )
+        points_t = models.data.PointsSubseqField(
+            p_folder, transform=transform, seq_len=seq_len,
+            unpackbits=unpackbits
+        )
+
+        fields['colored_points'] = colored_points
+        fields['points'] = points
+        fields['points_t'] = points_t
     
     elif mode == 'test':
         # TODO

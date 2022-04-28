@@ -5,6 +5,7 @@ import argparse
 import models.data as data
 from tensorboardX import SummaryWriter
 import os
+from utils.checkpoint import CheckpointIO
 
 # Config
 cfg = config.load_config('default.yaml')
@@ -37,7 +38,7 @@ lr = cfg['training']['learning_rate']
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, num_workers=0, shuffle=True,
                                             collate_fn=data.collate_remove_none,
                                             worker_init_fn=data.worker_init_fn)
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, num_workers=0, shuffle=False,
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size_val, num_workers=0, shuffle=False,
                                         collate_fn=data.collate_remove_none,
                                         worker_init_fn=data.worker_init_fn)
 
@@ -48,17 +49,26 @@ model = model.to(device)
 # Optimizer
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
+# Load pre-trained model is existing
+kwargs = {
+    'model': model,
+    'optimizer': optimizer,
+}
+checkpoint_io = CheckpointIO(
+    out_dir, initialize_from=cfg['model']['initialize_from'],
+    initialization_file_name=cfg['model']['initialization_file_name'],
+    **kwargs)
+
 # Trainer
 trainer = config.get_trainer(model, optimizer, cfg, device)
 
 # Training Info
 epoch_it = -1
 it = -1
-
+model_selection_sign = -1
 logger = SummaryWriter(os.path.join(out_dir, 'logs'))
 print_every = cfg['training']['print_every']
 validate_every = cfg['training']['validate_every']
-
 
 # Training loop
 
@@ -76,18 +86,19 @@ while True:
                   % (epoch_it, it, loss))
             
 
-        # if validate_every > 0 and (it % validate_every) == 0:
-        #     eval_dict = trainer.evaluate(val_loader)
-        #     metric_val = eval_dict["loss"]
-        #     print('Validation metric (%s): %.4f'
-        #           % ("loss", metric_val))
+        if validate_every > 0 and (it % validate_every) == 0:
+            # print("EVALUATE")
+            eval_dict = trainer.evaluate(val_loader)
+            metric_val = eval_dict["loss"]
+            print('Validation %s: %.4f'
+                  % ("loss", metric_val))
 
-        #     for k, v in eval_dict.items():
-        #         logger.add_scalar('val/%s' % k, v, it)
+            for k, v in eval_dict.items():
+                logger.add_scalar('val/%s' % k, v, it)
 
-            # if model_selection_sign * (metric_val - metric_val_best) > 0:
-            #     metric_val_best = metric_val
-            #     print('New best model (loss %.4f)' % metric_val_best)
-            #     checkpoint_io.save('model_best.pt', epoch_it=epoch_it, it=it,
-            #                        loss_val_best=metric_val_best)
+            if model_selection_sign * (metric_val - metric_val_best) > 0:
+                metric_val_best = metric_val
+                print('New best model (loss %.4f)' % metric_val_best)
+                checkpoint_io.save('model_best.pt', epoch_it=epoch_it, it=it,
+                                   loss_val_best=metric_val_best)
 

@@ -121,7 +121,7 @@ class OccupancyFlow(nn.Module):
         return p_r
 
     def decode_color(self, p, z=None, c=None, **kwargs):
-        ''' Returns occupancy values for the points p at time step 0.
+        ''' Returns color values of point p at time step 0.
 
         Args:
             p (tensor): points
@@ -387,19 +387,22 @@ class OccupancyFlow(nn.Module):
 
         c_color_dim = c_t_color.shape[-1]
         z_color_dim = z_color.shape[-1]
-
+        
+        
         t_steps_eval, t_order = self.return_time_steps(t)
+        
         if len(t_steps_eval) == 1:
-            return p.unsqueeze(1), t_order
+            return p.unsqueeze(1)[:,:,:,0:3], p.unsqueeze(1), t_order
 
         f_options = {'T_batch': t_batch, 'invert': invert}
-
+        
         p_concat = self.concat_vf_input(p[:,:,0:3], c=c_t, z=z)
+        
         s = self.odeint(
             self.vector_field, p_concat, t_steps_eval,
             method=self.ode_solver, rtol=self.rtol, atol=self.atol,
             options=self.ode_options, f_options=f_options)
-
+        
         p_out = self.disentangle_vf_output(
             s, c_dim=c_dim, z_dim=z_dim, return_start=return_start)
 
@@ -413,6 +416,7 @@ class OccupancyFlow(nn.Module):
             s_color, c_dim=c_color_dim, z_dim=z_color_dim, return_start=return_start)
 
         # output shape: p_out = [..., 3], p_color_out = [..., 6]
+        # print(p_out.size(), p_color_out.size(), t_order.size())
         return p_out, p_color_out, t_order
 
     def return_time_steps(self, t):
