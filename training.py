@@ -1,4 +1,5 @@
 import os
+from time import time
 import torch
 from torch.nn import functional as F
 from torch import distributions as dist
@@ -36,6 +37,7 @@ def compute_iou(occ1, occ2):
     iou = (area_intersect / area_union)
 
     return iou
+
 
 
 class Trainer(object):
@@ -80,6 +82,66 @@ class Trainer(object):
 
         if vis_dir is not None and not os.path.exists(vis_dir):
             os.makedirs(vis_dir)
+
+
+    def get_gt_color (self, gt_data, value):
+        '''
+        Get expected value of (batch x time x num_pts x 6(x,y,z, r,g,b))
+        and return gt_color (batch x time x num_pts x 3(r,g,b))
+        from gt_data 
+        '''
+        device = self.device
+        batch_size, time_val, num_pts, _ = value.size()
+
+        ret_gt_color = torch.zeros((batch_size, time_val, num_pts, 3))
+        for i in range(batch_size):
+            ret_gt_batch = torch.zeros((time_val, num_pts, 3))
+            for j in range(time_val):
+                # dictionary: (x,y,z) -> (r,g,b)
+                gt_frame = gt_data[i,j].to(device)
+                # num_pts x 6
+                exp_frame = value[i,j]
+                ret_gt_frame = torch.zeros((num_pts, 3))
+                for k in range(num_pts):
+                    # Trilinear interpolation
+                    exp_x, exp_y, exp_z = exp_frame[k,:3]
+
+                    x_0 = ((int(exp_x) >> 3) << 3)
+                    x_1 = x_0 + 8
+                    y_0 = ((int(exp_y) >> 3) << 3)
+                    y_1 = y_0 + 8
+                    z_0 = ((int(exp_z) >> 3) << 3)
+                    z_1 = z_0 + 8
+
+                    x_d = (exp_x - x_0) / 8
+                    y_d = (exp_y - y_0) / 8
+                    z_d = (exp_z - z_0) / 8
+
+                    # dictionary: get [r,g,b] by key(x,y,z)
+                    c_000 = gt_frame[(x_0, y_0, z_0)]
+                    c_100 = gt_frame[(x_1, y_0, z_0)]
+                    c_001 = gt_frame[(x_0, y_0, z_1)]
+                    c_101 = gt_frame[(x_1, y_0, z_1)]
+                    c_010 = gt_frame[(x_0, y_1, z_0)]
+                    c_110 = gt_frame[(x_1, y_1, z_0)]
+                    c_011 = gt_frame[(x_0, y_1, z_1)]
+                    c_111 = gt_frame[(x_1, y_1, z_1)]
+
+                    c_00 = c_000 * (1 - x_d) + c_100 * (x_d)
+                    c_01 = c_001 * (1 - x_d) + c_101 * (x_d)
+                    c_10 = c_010 * (1 - x_d) + c_110 * (x_d)
+                    c_11 = c_011 * (1 - x_d) + c_111 * (x_d)
+
+                    c_0 = c_00 * (1 - y_d) + c_10 * (y_d)
+                    c_1 = c_01 * (1 - y_d) + c_11 * (y_d)
+
+                    gt_color = c_0 * (1 - z_d) + c_1 * (z_d)
+                    ret_gt_frame[k] = gt_color
+
+                ret_gt_batch[j] = ret_gt_frame
+            ret_gt_color[i] = ret_gt_batch
+            
+        return ret_gt_color
 
     def evaluate(self, val_loader):
         ''' Performs an evaluation.
@@ -145,7 +207,7 @@ class Trainer(object):
             eval_dict['kl_color_2'] = loss_kl_color_2
             loss += loss_kl
 
-            # IoU
+            # # IoU
             # if self.eval_iou:
             #     eval_dict_iou = self.eval_step_iou(data, c_s=c_s, c_t=c_t, z=z,
             #                                        z_t=z_t, c_s_color=c_s_color,
@@ -248,18 +310,24 @@ class Trainer(object):
 
         colored_points = data.get('colored_points').to(device)
         points_time = data.get('colored_points.time').to(device)[0]
+        
+        batch_size, time_size, num_pts, dim = colored_points.size()
+        
 
         points_t0 = colored_points[:,0,:,:]
 
         point_pred, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
 
-        l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
-        l2_color = torch.norm(color_pred[:,:,:,3:] - colored_points[:,:,:,3:], 2, dim=-1).mean(0).mean(-1)
+        gt_data = data.get('TO_BE_DECIDED')
+        gt_color = self.get_gt_color(gt_data, color_pred)
+
+        # l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
+        l2_color = torch.norm(color_pred[:,:,:,3:] - gt_color, 2, dim=-1).mean(0).mean(-1)
         
-        eval_dict['l2'] = l2.sum().item() / len(l2)
-        for i in range(len(l2)):
-            eval_dict['l2_%d' % (i+1)] = l2[i].item()
+        # eval_dict['l2'] = l2.sum().item() / len(l2)
+        # for i in range(len(l2)):
+        #     eval_dict['l2_%d' % (i+1)] = l2[i].item()
 
         eval_dict['color_loss'] = l2_color.sum().item() / len(l2_color)
         for i in range(len(l2_color)):
@@ -412,8 +480,8 @@ class Trainer(object):
             logits_p_t, occ_t.view(batch_size, -1), reduction='none')
         loss_occ_t = loss_occ_t.mean()
 
+        # batch x num_pts x 3
         oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
-
 
         loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
         
@@ -456,6 +524,24 @@ class Trainer(object):
             loss_corr = torch.norm(pt_pred - pc[:, 1:], 2, dim=-1).mean()
 
         return loss_corr
+
+    def compute_loss_color(self, data, z=None, z_color=None, c_t=None, c_t_color=None):
+        device = self.device
+        
+        colored_points = data.get('colored_points').to(device)
+        points_time = data.get('colored_points.time').to(device)[0]
+
+        points_t0 = colored_points[:,0,:,:]
+
+        _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
+                                                c_t, c_t_color)
+        
+        gt_data = data.get('TO_BE_DECIDED')
+        gt_color = self.get_gt_color(gt_data, color_pred)
+
+        loss_color = torch.norm(gt_color - color_pred[:,:,:,3:], 2, dim=-1).mean()
+        
+        return loss_color
 
     def compute_kl(self, q_z):
         ''' Compute the KL-divergence for predicted and prior distribution.
@@ -509,5 +595,8 @@ class Trainer(object):
         # Correspondence Loss
         loss_corr = self.compute_loss_corr(data, c_t, z_t)
 
-        loss = loss_recon + loss_corr + loss_kl + loss_kl_color
+        # Color Loss
+        loss_color = self.compute_loss_color(data, z, z_color, c_t, c_t_color)
+
+        loss = loss_recon + loss_corr + loss_kl + loss_kl_color + loss_color
         return loss

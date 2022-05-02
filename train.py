@@ -6,6 +6,7 @@ import models.data as data
 from tensorboardX import SummaryWriter
 import os
 from utils.checkpoint import CheckpointIO
+import numpy as np
 
 # Config
 cfg = config.load_config('default.yaml')
@@ -23,6 +24,7 @@ val_dataset = config.get_dataset('val', cfg)
 # Shorthands
 batch_size = cfg['training']['batch_size']
 batch_size_val = cfg['training']['batch_size_val']
+model_selection_sign = -1
 # model_selection_metric = cfg['training']['model_selection_metric']
 # if cfg['training']['model_selection_mode'] == 'maximize':
 #     model_selection_sign = 1
@@ -58,6 +60,14 @@ checkpoint_io = CheckpointIO(
     out_dir, initialize_from=cfg['model']['initialize_from'],
     initialization_file_name=cfg['model']['initialization_file_name'],
     **kwargs)
+try:
+    load_dict = checkpoint_io.load('model.pt')
+except FileExistsError:
+    load_dict = dict()
+epoch_it = load_dict.get('epoch_it', -1)
+it = load_dict.get('it', -1)
+metric_val_best = load_dict.get(
+    'loss_val_best', -model_selection_sign * np.inf)
 
 # Trainer
 trainer = config.get_trainer(model, optimizer, cfg, device)
@@ -65,7 +75,7 @@ trainer = config.get_trainer(model, optimizer, cfg, device)
 # Training Info
 epoch_it = -1
 it = -1
-model_selection_sign = -1
+
 logger = SummaryWriter(os.path.join(out_dir, 'logs'))
 print_every = cfg['training']['print_every']
 validate_every = cfg['training']['validate_every']
