@@ -319,7 +319,7 @@ class Trainer(object):
         point_pred, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
 
-        gt_data = data.get('TO_BE_DECIDED')
+        gt_data = data.get('TBD')
         gt_color = self.get_gt_color(gt_data, color_pred)
 
         # l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
@@ -536,7 +536,7 @@ class Trainer(object):
         _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
         
-        gt_data = data.get('TO_BE_DECIDED')
+        gt_data = data.get('TBD')
         gt_color = self.get_gt_color(gt_data, color_pred)
 
         loss_color = torch.norm(gt_color - color_pred[:,:,:,3:], 2, dim=-1).mean()

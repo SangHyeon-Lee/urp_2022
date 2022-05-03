@@ -526,14 +526,14 @@ class PointsSubseqField(Field):
         self.fixed_time_step = fixed_time_step
         self.unpackbits = unpackbits
 
+        # for gt access
+        self.gt_data = None
+
     def load_files (self, model_path, start_idx):
         folder = os.path.join(model_path, self.folder_name)
         files = glob.glob(os.path.join(folder, '*.npz'))        
         files.sort()
         files = files[start_idx:start_idx+self.seq_len]
-
-        #print("FILES:", files, self.folder_name)
-        #print("debug, range:", start_idx, start_idx+self.seq_len)
         
 
         return files
@@ -543,6 +543,7 @@ class PointsSubseqField(Field):
         o_list = []
         c_list = []
         t_list = []
+        cp_list = []
 
         for i, f in enumerate(files):
             points_dict = np.load(f)
@@ -570,10 +571,18 @@ class PointsSubseqField(Field):
             # time
             time = np.array(i/(self.seq_len - 1), dtype=np.float32)
 
+            # concat points and color
+            color_points = np.concatenate((points, colors), axis=-1)
+
+
             p_list.append(points)
             o_list.append(occupancies)
             c_list.append(colors)
             t_list.append(time)
+            cp_list.append(color_points)
+
+        # for gt access
+        self.gt_data = cp_list
 
 
         data = {
@@ -611,11 +620,16 @@ class PointsSubseqField(Field):
         occupancies = occupancies.astype(np.float32)
         colors = points_dict['colors'].astype(np.float32)
 
+        # concat points and color
+        color_points = np.concatenate((points, colors), axis=-1)
+
         if self.seq_len > 1:
             time = np.array(
                 time_step / (self.seq_len - 1), dtype=np.float32)
         else:
             time = np.array([1], dtype=np.float32)
+
+        self.gt_data = color_points
 
         data = {
             None: points,
@@ -637,14 +651,12 @@ class PointsSubseqField(Field):
         else:
             data = self.load_single_step(files)
 
-
-        #print("debug, dim data (before)", np.shape(data[None]))
         if self.transform is not None:
-            #print("debug: points_t transfrom start")
             data = self.transform(data)
-            #print("debug: points_t transfrom end")
-        
-        #print("debug, dim data (after)", np.shape(data[None]))
+
+        data['gt_cp'] = self.gt_data
+
+        #print("debug: ", np.shape(self.gt_data))
 
         return data
 
@@ -661,6 +673,9 @@ class ColorPointSubseqField(Field):
         self.sample_padding = 0.1
         self.fixed_time_step = fixed_time_step
         self.unpackbits = unpackbits
+
+        # for gt access
+        self.gt_data = None
     
     
     def load_files(self, model_path, start_idx):
@@ -678,6 +693,9 @@ class ColorPointSubseqField(Field):
         c_list = []
         t_list = []
         cp_list = []
+
+        # for gt access
+        gt_cp_list = []
         
         for i, f in enumerate(files):
             points_dict = np.load(f)
@@ -713,6 +731,10 @@ class ColorPointSubseqField(Field):
             c_list.append(colors)
             t_list.append(time)
             cp_list.append(color_points)
+
+            
+        # for gt access
+        self.gt_data = cp_list
 
 
         data = {
@@ -769,6 +791,9 @@ class ColorPointSubseqField(Field):
             'time': time,
         }
 
+        # for gt access
+        self.gt_data = color_points
+
         #print("debug, data", data)
 
         return data
@@ -789,15 +814,10 @@ class ColorPointSubseqField(Field):
         else:
             #print("debug, branch else")
             data = self.load_single_step(files)
-        
-        #print("debug, data loaded")
-
-        #print(data)
 
         if self.transform is not None:
             data = self.transform(data)
-        
-        #print("debug, data_transformed")
+
+        data['gt_cp'] = self.gt_data
         
         return data
-

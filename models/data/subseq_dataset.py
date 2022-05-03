@@ -102,9 +102,7 @@ class FacesDataset (data.Dataset):
                 field_data = field.load(model_path, idx, c_idx, start_idx)
             except Exception:
                 raise
-                
             
-            #print("debug: try passed")
 
 
             if isinstance(field_data, dict):
@@ -123,7 +121,7 @@ class FacesDataset (data.Dataset):
         if self.transform is not None:
             data = self.transform(data)
         
-        #print("debug, data: ", data)
+        print("(debug) data_keys: ", data.keys())
 
         return data
 
