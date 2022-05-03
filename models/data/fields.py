@@ -527,7 +527,7 @@ class PointsSubseqField(Field):
         self.unpackbits = unpackbits
 
         # for gt access
-        self.gt_data = None
+        self.gt_data = np.array([])
 
     def load_files (self, model_path, start_idx):
         folder = os.path.join(model_path, self.folder_name)
@@ -654,9 +654,12 @@ class PointsSubseqField(Field):
         if self.transform is not None:
             data = self.transform(data)
 
-        data['gt_cp'] = self.gt_data
 
-        #print("debug: ", np.shape(self.gt_data))
+
+        # gt_cp process
+        data['gt_cp'] = self.gt_data      
+        
+        
 
         return data
 
@@ -675,7 +678,7 @@ class ColorPointSubseqField(Field):
         self.unpackbits = unpackbits
 
         # for gt access
-        self.gt_data = None
+        self.gt_data = np.array([])
     
     
     def load_files(self, model_path, start_idx):
@@ -812,12 +815,13 @@ class ColorPointSubseqField(Field):
             #print("debug, branch cond1")
             data = self.load_all_steps(files)
         else:
-            #print("debug, branch else")
             data = self.load_single_step(files)
 
         if self.transform is not None:
             data = self.transform(data)
 
+
+        # gt_cp process
         data['gt_cp'] = self.gt_data
         
         return data
