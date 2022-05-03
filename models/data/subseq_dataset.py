@@ -121,7 +121,7 @@ class FacesDataset (data.Dataset):
         if self.transform is not None:
             data = self.transform(data)
         
-        print("(debug) data_keys: ", data.keys())
+        # print("(debug) data_keys: ", data.keys())
 
         return data
 

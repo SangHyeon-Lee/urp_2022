@@ -38,7 +38,14 @@ def compute_iou(occ1, occ2):
 
     return iou
 
+def get_index_with_xyz(x, y, z):
+	i = (int(x) + 200) >> 3
+	j = (int(y) + 200) >> 3
+	k = (int(z) + 200) >> 3
 
+	idx = i * 51 * 51 + j * 51 + k
+
+	return idx
 
 class Trainer(object):
     ''' Trainer class for OFlow Model.
@@ -90,6 +97,8 @@ class Trainer(object):
         and return gt_color (batch x time x num_pts x 3(r,g,b))
         from gt_data 
         '''
+
+        # print(gt_data.size())
         device = self.device
         batch_size, time_val, num_pts, _ = value.size()
 
@@ -98,7 +107,9 @@ class Trainer(object):
             ret_gt_batch = torch.zeros((time_val, num_pts, 3))
             for j in range(time_val):
                 # dictionary: (x,y,z) -> (r,g,b)
-                gt_frame = gt_data[i,j].to(device)
+
+                gt_frame = gt_data[i][j].to(device)
+                print(gt_frame.size())
                 # num_pts x 6
                 exp_frame = value[i,j]
                 ret_gt_frame = torch.zeros((num_pts, 3))
@@ -118,14 +129,14 @@ class Trainer(object):
                     z_d = (exp_z - z_0) / 8
 
                     # dictionary: get [r,g,b] by key(x,y,z)
-                    c_000 = gt_frame[(x_0, y_0, z_0)]
-                    c_100 = gt_frame[(x_1, y_0, z_0)]
-                    c_001 = gt_frame[(x_0, y_0, z_1)]
-                    c_101 = gt_frame[(x_1, y_0, z_1)]
-                    c_010 = gt_frame[(x_0, y_1, z_0)]
-                    c_110 = gt_frame[(x_1, y_1, z_0)]
-                    c_011 = gt_frame[(x_0, y_1, z_1)]
-                    c_111 = gt_frame[(x_1, y_1, z_1)]
+                    c_000 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_100 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_001 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_101 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_010 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_110 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_011 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_111 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
 
                     c_00 = c_000 * (1 - x_d) + c_100 * (x_d)
                     c_01 = c_001 * (1 - x_d) + c_101 * (x_d)
@@ -319,7 +330,7 @@ class Trainer(object):
         point_pred, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
 
-        gt_data = data.get('TBD')
+        gt_data = data.get('colored_points.gt_cp')
         gt_color = self.get_gt_color(gt_data, color_pred)
 
         # l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
@@ -536,7 +547,8 @@ class Trainer(object):
         _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
         
-        gt_data = data.get('TBD')
+        gt_data = data.get('colored_points.gt_cp')
+
         gt_color = self.get_gt_color(gt_data, color_pred)
 
         loss_color = torch.norm(gt_color - color_pred[:,:,:,3:], 2, dim=-1).mean()
