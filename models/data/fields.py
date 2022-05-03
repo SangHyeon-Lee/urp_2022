@@ -582,7 +582,7 @@ class PointsSubseqField(Field):
             cp_list.append(color_points)
 
         # for gt access
-        self.gt_data = cp_list
+        self.gt_data = p_list
 
 
         data = {
@@ -629,7 +629,7 @@ class PointsSubseqField(Field):
         else:
             time = np.array([1], dtype=np.float32)
 
-        self.gt_data = color_points
+        self.gt_data = points
 
         data = {
             None: points,
@@ -657,8 +657,7 @@ class PointsSubseqField(Field):
 
 
         # gt_cp process
-        data['gt_cp'] = self.gt_data      
-        
+        data['gt_cp'] = self.gt_data
         
 
         return data
@@ -737,7 +736,7 @@ class ColorPointSubseqField(Field):
 
             
         # for gt access
-        self.gt_data = cp_list
+        self.gt_data = p_list
 
 
         data = {
@@ -795,7 +794,7 @@ class ColorPointSubseqField(Field):
         }
 
         # for gt access
-        self.gt_data = color_points
+        self.gt_data = points
 
         #print("debug, data", data)
 
@@ -823,5 +822,6 @@ class ColorPointSubseqField(Field):
 
         # gt_cp process
         data['gt_cp'] = self.gt_data
+
         
         return data
