@@ -55,7 +55,7 @@ class FacesDataset (data.Dataset):
         for c_idx, c in enumerate(categories):
             self.metadata[c]['idx'] = c_idx
 
-        #print("(debug)", categories)
+        # print("(debug)", categories)
 
         # Get all models
         self.models = []
@@ -121,7 +121,7 @@ class FacesDataset (data.Dataset):
         if self.transform is not None:
             data = self.transform(data)
         
-        #print("(debug) data_keys: ", data.keys())
+        # print("(debug) data_keys: ", data.keys())
 
         return data
 

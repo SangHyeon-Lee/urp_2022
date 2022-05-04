@@ -38,7 +38,18 @@ def compute_iou(occ1, occ2):
 
     return iou
 
+def get_index_with_xyz(x, y, z):
+    i = (int(x) + 200) >> 3
+    j = (int(y) + 200) >> 3
+    k = (int(z) + 200) >> 3
 
+    idx = i * 51 * 51 + j * 51 + k
+    if (idx < 0):
+        idx = 0
+    elif (idx > 132650):
+        idx = 132650
+
+    return idx
 
 class Trainer(object):
     ''' Trainer class for OFlow Model.
@@ -98,7 +109,7 @@ class Trainer(object):
             ret_gt_batch = torch.zeros((time_val, num_pts, 3))
             for j in range(time_val):
                 # dictionary: (x,y,z) -> (r,g,b)
-                gt_frame = gt_data[i,j].to(device)
+                gt_frame = gt_data[j][i].to(device)
                 # num_pts x 6
                 exp_frame = value[i,j]
                 ret_gt_frame = torch.zeros((num_pts, 3))
@@ -118,14 +129,14 @@ class Trainer(object):
                     z_d = (exp_z - z_0) / 8
 
                     # dictionary: get [r,g,b] by key(x,y,z)
-                    c_000 = gt_frame[(x_0, y_0, z_0)]
-                    c_100 = gt_frame[(x_1, y_0, z_0)]
-                    c_001 = gt_frame[(x_0, y_0, z_1)]
-                    c_101 = gt_frame[(x_1, y_0, z_1)]
-                    c_010 = gt_frame[(x_0, y_1, z_0)]
-                    c_110 = gt_frame[(x_1, y_1, z_0)]
-                    c_011 = gt_frame[(x_0, y_1, z_1)]
-                    c_111 = gt_frame[(x_1, y_1, z_1)]
+                    c_000 = gt_frame[get_index_with_xyz(x_0, y_0, z_0)]
+                    c_100 = gt_frame[get_index_with_xyz(x_1, y_0, z_0)]
+                    c_001 = gt_frame[get_index_with_xyz(x_0, y_0, z_1)]
+                    c_101 = gt_frame[get_index_with_xyz(x_1, y_0, z_1)]
+                    c_010 = gt_frame[get_index_with_xyz(x_0, y_1, z_0)]
+                    c_110 = gt_frame[get_index_with_xyz(x_1, y_1, z_0)]
+                    c_011 = gt_frame[get_index_with_xyz(x_0, y_1, z_1)]
+                    c_111 = gt_frame[get_index_with_xyz(x_1, y_1, z_1)]
 
                     c_00 = c_000 * (1 - x_d) + c_100 * (x_d)
                     c_01 = c_001 * (1 - x_d) + c_101 * (x_d)
@@ -229,7 +240,7 @@ class Trainer(object):
             for (k, v) in eval_dict_color.items():
                 eval_dict[k] = v
             loss += eval_dict['color_loss']
-            loss += eval_dict['l2']
+            # loss += eval_dict['l2']
         eval_dict['loss'] = loss
         return eval_dict
 
@@ -319,8 +330,8 @@ class Trainer(object):
         point_pred, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
 
-        gt_data = data.get('TBD')
-        gt_color = self.get_gt_color(gt_data, color_pred)
+        gt_data = data.get('colored_points.gt_cp')
+        gt_color = self.get_gt_color(gt_data, color_pred).to(device)
 
         # l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
         l2_color = torch.norm(color_pred[:,:,:,3:] - gt_color, 2, dim=-1).mean(0).mean(-1)
@@ -481,11 +492,11 @@ class Trainer(object):
         loss_occ_t = loss_occ_t.mean()
 
         # batch x num_pts x 3
-        oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
+        # oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
 
-        loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
+        # loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
         
-        return loss_occ_t + loss_color
+        return loss_occ_t
 
     def compute_loss_corr(self, data, c_t=None, z_t=None):
         ''' Returns the correspondence loss.
@@ -536,8 +547,8 @@ class Trainer(object):
         _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                 c_t, c_t_color)
         
-        gt_data = data.get('TBD')
-        gt_color = self.get_gt_color(gt_data, color_pred)
+        gt_data = data.get('colored_points.gt_cp')
+        gt_color = self.get_gt_color(gt_data, color_pred).to(device)
 
         loss_color = torch.norm(gt_color - color_pred[:,:,:,3:], 2, dim=-1).mean()
         
