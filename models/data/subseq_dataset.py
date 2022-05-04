@@ -55,7 +55,7 @@ class FacesDataset (data.Dataset):
         for c_idx, c in enumerate(categories):
             self.metadata[c]['idx'] = c_idx
 
-        #print("(debug)", categories)
+        # print("(debug)", categories)
 
         # Get all models
         self.models = []

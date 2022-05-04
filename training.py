@@ -44,7 +44,6 @@ def get_index_with_xyz(x, y, z):
     k = (int(z) + 200) >> 3
 
     idx = i * 51 * 51 + j * 51 + k
-
     if (idx < 0):
         idx = 0
     elif (idx > 132650):
@@ -133,14 +132,14 @@ class Trainer(object):
                     z_d = (exp_z - z_0) / 8
 
                     # dictionary: get [r,g,b] by key(x,y,z)
-                    c_000 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_100 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_001 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_101 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_010 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_110 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_011 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
-                    c_111 = gt_frame[get_index_with_xyz(exp_x, exp_y, exp_z)]
+                    c_000 = gt_frame[get_index_with_xyz(x_0, y_0, z_0)]
+                    c_100 = gt_frame[get_index_with_xyz(x_1, y_0, z_0)]
+                    c_001 = gt_frame[get_index_with_xyz(x_0, y_0, z_1)]
+                    c_101 = gt_frame[get_index_with_xyz(x_1, y_0, z_1)]
+                    c_010 = gt_frame[get_index_with_xyz(x_0, y_1, z_0)]
+                    c_110 = gt_frame[get_index_with_xyz(x_1, y_1, z_0)]
+                    c_011 = gt_frame[get_index_with_xyz(x_0, y_1, z_1)]
+                    c_111 = gt_frame[get_index_with_xyz(x_1, y_1, z_1)]
 
                     c_00 = c_000 * (1 - x_d) + c_100 * (x_d)
                     c_01 = c_001 * (1 - x_d) + c_101 * (x_d)
@@ -496,7 +495,7 @@ class Trainer(object):
         loss_occ_t = loss_occ_t.mean()
 
         # batch x num_pts x 3
-        oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
+        # oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
 
         # loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
         
@@ -552,7 +551,6 @@ class Trainer(object):
                                                 c_t, c_t_color)
         
         gt_data = data.get('colored_points.gt_cp')
-
         gt_color = self.get_gt_color(gt_data, color_pred).to(device)
 
         loss_color = torch.norm(gt_color - color_pred[:,:,:,3:], 2, dim=-1).mean()
