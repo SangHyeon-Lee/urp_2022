@@ -96,7 +96,7 @@ while True:
                   % (epoch_it, it, loss))
             
 
-        if it > 0 and validate_every > 0 and (it % validate_every) == 0:
+        if validate_every > 0 and (it % validate_every) == 0:
             # print("EVALUATE")
             eval_dict = trainer.evaluate(val_loader)
             metric_val = eval_dict["loss"]
