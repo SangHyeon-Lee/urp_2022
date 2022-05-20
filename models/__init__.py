@@ -381,10 +381,10 @@ class OccupancyFlow(nn.Module):
             return_start (bool): whether to return the start points
         '''
 
-
+        
         c_dim = c_t.shape[-1]
         z_dim = z.shape[-1]
-
+        
         c_color_dim = c_t_color.shape[-1]
         z_color_dim = z_color.shape[-1]
         
@@ -397,7 +397,7 @@ class OccupancyFlow(nn.Module):
         f_options = {'T_batch': t_batch, 'invert': invert}
         
         p_concat = self.concat_vf_input(p[:,:,0:3], c=c_t, z=z)
-        
+
         s = self.odeint(
             self.vector_field, p_concat, t_steps_eval,
             method=self.ode_solver, rtol=self.rtol, atol=self.atol,

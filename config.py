@@ -301,6 +301,31 @@ def get_data_fields(mode, cfg):
     elif mode == 'test':
         # TODO
         pass
+    elif mode == 'vis':
+        transform = models.data.SubsampleColorPointsSeq(
+            1000, # FIX (number of sample points)
+            connected_samples=True
+        )
+        colored_points = models.data.ColorPointSubseqField(
+            cfg['data']['pointcloud_seq_folder'],
+            transform, seq_len=cfg['data']['length_sequence'],
+            all_steps=True, fixed_time_step=1 # FIX (start_idx)
+        )
+
+        points = models.data.PointsSubseqField(
+            p_folder, transform=transform, seq_len=seq_len,
+            fixed_time_step=0, unpackbits=unpackbits,
+            all_steps=True
+        )
+        points_t = models.data.PointsSubseqField(
+            p_folder, transform=transform, seq_len=seq_len,
+            unpackbits=unpackbits
+        )
+
+        if cfg['model']['loss_recon']:
+            fields['colored_points'] = colored_points
+            fields['points'] = points
+            fields['points_t'] = points_t
 
     return fields
     
@@ -382,6 +407,7 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
         'train': cfg['data']['train_split'],
         'val': cfg['data']['val_split'],
         'test': cfg['data']['test_split'],
+        'vis': cfg['data']['vis_split']
     }
     split = splits[mode]
 
@@ -411,8 +437,7 @@ def get_dataset(mode, cfg, return_idx=False, return_category=False):
             ex_folder_name=cfg['data']['pointcloud_seq_folder'])
 
     else:
-        raise ValueError ('Invalid datase')
-
+        raise ValueError ('Invalid dataset')
 
     return dataset
 

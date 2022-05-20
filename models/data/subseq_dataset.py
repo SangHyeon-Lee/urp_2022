@@ -59,6 +59,8 @@ class FacesDataset (data.Dataset):
 
         # Get all models
         self.models = []
+        subpath = os.path.join(dataset_folder, c)
+        #print("debug: ", os.path.join(subpath, split + '.lst'))
         for c_idx, c in enumerate(categories):
             subpath = os.path.join(dataset_folder, c)
             #print("debug: subpath", subpath)
@@ -72,6 +74,7 @@ class FacesDataset (data.Dataset):
                 models_c = [f for f in os.listdir(subpath) if
                             os.path.isdir(os.path.join(subpath, f))]
             models_c = list(filter(lambda x: len(x) > 0, models_c))
+            print("debug, models_c", models_c)
             models_len = self.get_models_seq_len(subpath, models_c)
             models_c, start_idx = self.subdivide_into_sequences(
                 models_c, models_len)

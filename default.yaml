@@ -9,6 +9,7 @@ data:
   train_split: train
   val_split: val
   test_split: test
+  vis_split: vis
 
   length_sequence: 17
   n_files_per_sequence: -1
@@ -51,7 +52,7 @@ training:
   out_dir: out/00
   eval_sample: true
   print_every: 5
-  validate_every: 250
+  validate_every: 20
   n_eval_points: 5000
 
   batch_size: 16
@@ -63,3 +64,6 @@ generation:
   correspondence: false
 
 method: oflow
+
+visualize:
+  batch_size: 1
