@@ -67,6 +67,8 @@ except FileExistsError:
 
 model.eval()
 
+
+
 for it, data in enumerate(tqdm(vis_loader)):
     # TODO
     #print("debug: ", data)
@@ -101,16 +103,44 @@ for it, data in enumerate(tqdm(vis_loader)):
     # color_pred[:,:,:,3:] to get only color
     point_pred, color_pred = model.transform_to_t(time, colored_points_t0[:, 0], c_t=c_t, z=z_t, z_color=z_color, c_t_color=c_t_color)
 
+
+    
     # Save to npz?
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
 
-    print(point_pred.shape, color_pred.shape)
+    geometry = o3d.geometry.PointCloud()
+    vis.add_geometry(geometry)
+    
+    save_image = True
+    
+    for target_idx in tqdm(range(100)):
+        points = point_pred[0, target_idx].detach().cpu().numpy()
+        colors = color_pred[0, target_idx, :, 3:].detach().cpu().numpy()
 
+        for i, c in enumerate(colors):
+            if c[0] < 0.1 and c[1] < 0.1 and c[2] < 0.1:
+                points[i,:] = np.array([200., 200., 200.])
 
-    points = point_pred[0, 0]
-    colors = color_pred[0, 0, :, 3:]
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.colors = o3d.utility.Vector3dVector(colors*2)
-    pcd.normals = o3d.utility.Vector3dVector(points / np.expand_dims(np.linalg.norm(points, axis=1), axis=1))
+        #points = np.array([points[i] for i, x in enumerate(colors) if colors[i][2] > 20])
+        #colors = np.array([colors[i] for i, x in enumerate(colors) if colors[i][2] > 20])
 
+        geometry.points = o3d.utility.Vector3dVector(points)
+        geometry.colors = o3d.utility.Vector3dVector(colors*2)
+        geometry.normals = o3d.utility.Vector3dVector(points / np.expand_dims(np.linalg.norm(points, axis=1), axis=1))
+
+        #o3d.visualization.draw_geometries([geometry])
+        
+        vis.add_geometry(geometry)
+        vis.update_geometry(geometry)
+        vis.poll_events()
+        vis.update_renderer()
+        vis.run()
+        if save_image:
+            vis.capture_screen_image("temp/temp_%04d.jpg" % target_idx)
+    
+    vis.destroy_window()
+    
+    
+    #o3d.visualization.draw_geometries([pcd])  
     break
