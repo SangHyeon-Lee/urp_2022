@@ -112,3 +112,7 @@ while True:
                 checkpoint_io.save('model_best.pt', epoch_it=epoch_it, it=it,
                                    loss_val_best=metric_val_best)
 
+            if (it % 50) == 0 :
+                print("Check point saved: it %d" %it)
+                checkpoint_io.save('model_it_%d.pt' % it, epoch_it=epoch_it, it=it,
+                                   loss_val_best=metric_val_best)

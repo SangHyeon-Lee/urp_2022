@@ -220,22 +220,22 @@ class Trainer(object):
             loss_kl_color_2 = self.compute_kl(q_z_t_color).item()
             loss_kl = loss_kl_1 + loss_kl_2 + loss_kl_color_1 + loss_kl_color_2
 
-            eval_dict['kl'] = loss_kl
-            eval_dict['kl_1'] = loss_kl_1
-            eval_dict['kl_2'] = loss_kl_2
-            eval_dict['kl_color_1'] = loss_kl_color_1
-            eval_dict['kl_color_2'] = loss_kl_color_2
-            loss += loss_kl
+            # eval_dict['kl'] = loss_kl
+            # eval_dict['kl_1'] = loss_kl_1
+            # eval_dict['kl_2'] = loss_kl_2
+            # eval_dict['kl_color_1'] = loss_kl_color_1
+            # eval_dict['kl_color_2'] = loss_kl_color_2
+            # loss += loss_kl
 
-            # # IoU
-            # if self.eval_iou:
-            #     eval_dict_iou = self.eval_step_iou(data, c_s=c_s, c_t=c_t, z=z,
-            #                                        z_t=z_t, c_s_color=c_s_color,
-            #                                        c_t_color=c_t_color, z_color=z_color,
-            #                                        z_t_color=z_t_color)
-            #     for (k, v) in eval_dict_iou.items():
-            #         eval_dict[k] = v
-            #     loss += eval_dict['rec_error']
+            # IoU
+            if self.eval_iou:
+                eval_dict_iou = self.eval_step_iou(data, c_s=c_s, c_t=c_t, z=z,
+                                                   z_t=z_t, c_s_color=c_s_color,
+                                                   c_t_color=c_t_color, z_color=z_color,
+                                                   z_t_color=z_t_color)
+                for (k, v) in eval_dict_iou.items():
+                    eval_dict[k] = v
+                loss += eval_dict['rec_error']
             # else:
             #     # Correspondence Loss
             #     eval_dict_mesh = self.eval_step_corr_l2(
@@ -317,9 +317,9 @@ class Trainer(object):
         eval_dict['iou'] = iou.sum() / len(iou)
         eval_dict['rec_error'] = rec_error.sum().item() / len(rec_error)
         # print(eval_dict['iou'], eval_dict['rec_error'])
-        for i in range(len(iou)):
-            eval_dict['iou_t%d' % i] = iou[i]
-            eval_dict['rec_error_t%d' % i] = rec_error[i].item()
+        # for i in range(len(iou)):
+        #     eval_dict['iou_t%d' % i] = iou[i]
+        #     eval_dict['rec_error_t%d' % i] = rec_error[i].item()
 
         return eval_dict
 
@@ -337,20 +337,27 @@ class Trainer(object):
         point_pred, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                            c_t, c_t_color)
 
-        gt_data = data.get('colored_points.gt_cp')
-        gt_color = self.get_gt_color(gt_data, color_pred).to(device)
+        gt_color_r = colored_points[:,:,:,3] / 255.0
+        gt_color_g = colored_points[:,:,:,4] / 255.0
+        gt_color_b = colored_points[:,:,:,5] / 255.0
 
-        # l2 = torch.norm(point_pred - colored_points[:,:,:,0:3], 2, dim=-1).mean(0).mean(-1)
-        l2_color = torch.norm(
-            color_pred[:, :, :, 3:] - gt_color, 2, dim=-1).mean(0).mean(-1)
+        relu = torch.nn.ReLU()
+        color_pred_r = relu(color_pred[:,:,:,3] / 255.0)
+        color_pred_g = relu(color_pred[:,:,:,4] / 255.0)
+        color_pred_b = relu(color_pred[:,:,:,5] / 255.0)
+
+        loss_color_r = F.cross_entropy(color_pred_r, gt_color_r)
+        loss_color_g = F.cross_entropy(color_pred_g, gt_color_g)
+        loss_color_b = F.cross_entropy(color_pred_b, gt_color_b)
+
+        loss_color = loss_color_r + loss_color_g + loss_color_b
 
         # eval_dict['l2'] = l2.sum().item() / len(l2)
         # for i in range(len(l2)):
         #     eval_dict['l2_%d' % (i+1)] = l2[i].item()
 
-        eval_dict['color_loss'] = l2_color.sum().item() / len(l2_color)
-        for i in range(len(l2_color)):
-            eval_dict['color_loss%d' % (i+1)] = l2_color[i].item()
+        eval_dict['color_loss'] = loss_color.item()
+        
         return eval_dict
 
     def eval_step_corr_l2(self, data, c_t=None, c_t_color=None, z_t=None, z_t_color=None):
@@ -501,10 +508,23 @@ class Trainer(object):
 
         # batch x num_pts x 3
         # oc_p_t = self.model.decode_color(p_color_t_at_t0, c=c_s_color, z=z_color)
+        relu = torch.nn.ReLU()
+       
+        color_pred_r = relu(p_color_t_at_t0[:,:,3] / 255.0)
+        color_pred_g = relu(p_color_t_at_t0[:,:,4] / 255.0)
+        color_pred_b = relu(p_color_t_at_t0[:,:,5] / 255.0)
+        
+        gt_color = data.get('points.colors').to(device)[:,0,:,:]
+        gt_color_r = gt_color[:,:,0] / 255.0
+        gt_color_g = gt_color[:,:,1] / 255.0
+        gt_color_b = gt_color[:,:,2] / 255.0
 
-        # loss_color = torch.norm(oc_p_t - color_t, 2, dim=-1).mean()
+        loss_color_r = F.cross_entropy(color_pred_r, gt_color_r)
+        loss_color_g = F.cross_entropy(color_pred_g, gt_color_g)
+        loss_color_b = F.cross_entropy(color_pred_b, gt_color_b)
 
-        return loss_occ_t
+
+        return loss_occ_t + loss_color_r + loss_color_g + loss_color_b
 
     def compute_loss_corr(self, data, c_t=None, z_t=None):
         ''' Returns the correspondence loss.
@@ -555,11 +575,20 @@ class Trainer(object):
         _, color_pred = self.model.transform_to_t(points_time, points_t0, z, z_color,
                                                   c_t, c_t_color)
 
-        gt_data = data.get('colored_points.gt_cp')
-        gt_color = self.get_gt_color(gt_data, color_pred).to(device)
+        gt_color_r = colored_points[:,:,:,3] / 255.0
+        gt_color_g = colored_points[:,:,:,4] / 255.0
+        gt_color_b = colored_points[:,:,:,5] / 255.0
 
-        loss_color = torch.norm(
-            gt_color - color_pred[:, :, :, 3:], 2, dim=-1).mean()
+        relu = torch.nn.ReLU()
+        color_pred_r = relu(color_pred[:,:,3] / 255.0)
+        color_pred_g = relu(color_pred[:,:,4] / 255.0)
+        color_pred_b = relu(color_pred[:,:,5] / 255.0)
+
+        loss_color_r = F.cross_entropy(color_pred_r, gt_color_r)
+        loss_color_g = F.cross_entropy(color_pred_g, gt_color_g)
+        loss_color_b = F.cross_entropy(color_pred_b, gt_color_b)
+
+        loss_color = loss_color_r + loss_color_g + loss_color_b
 
         return loss_color
 
@@ -588,7 +617,8 @@ class Trainer(object):
         # Encode inputs
         # for k in data.keys():
         #     print(k)
-        #     print(data[k].shape)
+        #     if not type(data[k]) is list:
+        #         print(data[k].shape)
         # print(data.get('points.time'))
 
         # inputs = batch x time x num_points x 6
@@ -616,7 +646,7 @@ class Trainer(object):
         loss_corr = self.compute_loss_corr(data, c_t, z_t)
 
         # Color Loss
-        loss_color = self.compute_loss_color(data, z, z_color, c_t, c_t_color)
+        # loss_color = self.compute_loss_color(data, z, z_color, c_t, c_t_color)
 
-        loss = loss_recon + loss_corr + loss_kl + loss_kl_color + loss_color
+        loss = loss_recon + loss_corr + loss_kl + loss_kl_color 
         return loss
