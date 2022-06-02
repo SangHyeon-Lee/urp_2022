@@ -20,9 +20,9 @@ y_min, y_max = -200, 200
 z_min, z_max = -200, 200
 
 
-linspace_x = np.linspace(x_min, x_max, 51)
-linspace_y = np.linspace(y_min, y_max, 51)
-linspace_z = np.linspace(z_min, z_max, 51)
+linspace_x = np.linspace(x_min, x_max, 101)
+linspace_y = np.linspace(y_min, y_max, 101)
+linspace_z = np.linspace(z_min, z_max, 101)
 
 
 
@@ -42,7 +42,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
     if not os.path.exists(testcase_save_dir):
         os.makedirs(testcase_save_dir)
 
-    for file in fileList:
+    for file in sorted(fileList):
         extension = file.split('.')[-1]
 
         if extension != 'obj':
@@ -91,7 +91,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
         voxel_min_bound = np.array([[x_min],[y_min],[z_min]])
         voxel_max_bound = np.array([[x_max],[y_max],[z_max]])
         v_size = round (max(pcd.get_max_bound() - pcd.get_min_bound())* 0.005, 4)
-        voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(pcd, 8, voxel_min_bound, voxel_max_bound)
+        voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(pcd, 4, voxel_min_bound, voxel_max_bound)
 
 
         #o3d.visualization.draw_geometries([voxel_grid])
@@ -102,7 +102,7 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
 
         #print(voxel_pos[:30])
         #print(voxel_grid)
-        abs_pos = (voxel_grid.origin + 8 * voxel_pos)
+        abs_pos = (voxel_grid.origin + 4 * voxel_pos)
         #print(abs_pos[:10])
         #print(min(abs_pos[:, 2]))
 
@@ -113,13 +113,52 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
 
 
 
+        L = len(linspace_x)
+
+        points = np.zeros((L**3, 3))
+        occupancies = np.zeros((L**3, 1), dtype=np.int_)
+        colors = np.zeros((L**3, 3))
+
+        occ_idx = np.zeros(L**3, dtype=np.uint8)
+        idx_table = np.zeros(L**3, dtype=np.uint8) 
+
+        for i, pos in enumerate(abs_pos):
+
+            x_idx = np.where(linspace_x == pos[0])
+            y_idx = np.where(linspace_y == pos[1])
+            z_idx = np.where(linspace_z == pos[2])
+
+            #print(x_idx, y_idx, z_idx)
+            x_idx, y_idx, z_idx = x_idx[0], y_idx[0], z_idx[0]
+            idx = x_idx * L * L + y_idx * L + z_idx
+
+            occ_idx[idx] = 1
+            idx_table[idx] = i
 
 
-        points = np.zeros((0, 3))
-        occupancies = np.zeros((0, 1), dtype=np.int_)
-        colors = np.zeros((0, 3))
+        for i in tqdm(range(L*L*L)):
+            # initial values
+            x, y, z = (i // L // L) % L, (i // L) % L, i % L
 
+            assert(i == x * L * L + y * L + z)
+            point = np.array([[x, y, z]])
+            occupancy = np.array([[0]], dtype=np.int_)
+            color = np.array([[0, 0, 0]])
 
+            if occ_idx[i] == 1:
+                idx = idx_table[i]
+                occupancy = np.array([[1]], dtype=np.int_)
+                color = np.array([voxel_color[idx]])
+
+            points[i,:] = point
+            occupancies[i,:] = occupancy
+            colors[i,:] = color
+            #occupancies = np.concatenate([occupancies, occupancy])
+            #colors = np.concatenate([colors, color])
+
+        #print(points[:10,:])
+
+        '''
         for x in tqdm(linspace_x):
             for y in linspace_y:
                 for z in linspace_z:
@@ -134,14 +173,14 @@ for dirName, subdirList, fileList in os.walk(coma_dir):
                             #print(x, y, z)
                             occupancy = np.array([[1]], dtype=np.int_)
                             color = np.array([voxel_color[i]])
+
+                            np.delete(abs_pos, i)
                             break
                     
                     points = np.concatenate([points, point])
                     occupancies = np.concatenate([occupancies, occupancy])
                     colors = np.concatenate([colors, color])
-
-
-
+        '''
 
 
         #out_dict = {}
